@@ -1,0 +1,72 @@
+# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+
+# dependencies
+/node_modules
+/.pnp
+.pnp.*
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/versions
+
+# testing
+/coverage
+
+# next.js
+/.next/
+/out/
+
+# production
+/build
+
+# misc
+.DS_Store
+*.pem
+
+# debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# env files (can opt-in for committing if needed)
+.env*
+
+# vercel
+.vercel
+
+# typescript
+*.tsbuildinfo
+next-env.d.ts
+
+!.env.example
+
+# seed で作成したアカウント
+.dev-credentials.txt
+
+# 自動構築ツールの作業ファイル（アプリの動作には不要）
+/.soloptilink/
+/.soloptilink-omega/
+/.first-boot-perfect/
+/run/
+/agent-evidence/
+*.bak-selfrecovery
+*.bak-statusbeacon
+/.env-completeness-report.txt
+/品質証明書.html
+/資産活用率.html
+/セキュリティ診断報告書.html
+/PAID_API_REPORT.md
+/.claude/
+# 自動構築ツールが生成した、このサイトとは無関係なもの
+/app/
+/納品物/
+/lib/
+/scripts/aupe-batch.local.sh
+/app-data/
+/開発書類/
+/運用/
+/要件SoT台帳.md
+/未達・未検算一覧.md
+/_計画書_展開/
