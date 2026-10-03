@@ -9,7 +9,9 @@ if (!url) {
 }
 
 const g = globalThis as unknown as { __pg?: ReturnType<typeof postgres> };
-const client = g.__pg ?? postgres(url, { max: 10 });
+// Supabase のトランザクション接続（ポート 6543）は事前準備済みの問い合わせに対応しないため無効にする
+const isTxPooler = /:6543\//.test(url);
+const client = g.__pg ?? postgres(url, { max: isTxPooler ? 5 : 10, prepare: !isTxPooler });
 if (process.env.NODE_ENV !== "production") g.__pg = client;
 
 export const db = drizzle(client, { schema });
