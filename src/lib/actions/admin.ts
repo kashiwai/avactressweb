@@ -343,7 +343,7 @@ export async function updateOwnAnonymousCount(_p: FormState, fd: FormData): Prom
 
 const sourceSchema = z.object({
   name: z.string().trim().min(1, "名称を入力してください").max(100),
-  kind: z.enum(["json_feed", "avzoku", "cityheaven"]),
+  kind: z.enum(["json_feed", "avzoku", "cityheaven", "avfuzoku"]),
   url: httpUrl("取り込み元のURL"),
   shopId: z.string().optional(),
   maxPages: z.coerce.number().int().min(1, "巡回ページ数は1以上にしてください").max(14, "巡回ページ数は14以下にしてください"),
@@ -357,6 +357,7 @@ function sourceValues(fd: FormData) {
   const shopId = Number(r.data.shopId);
   const hasShop = Number.isInteger(shopId) && shopId > 0;
   if (r.data.kind === "json_feed" && !hasShop) return { error: "JSONフィードは対象の店舗を選んでください" } as const;
+  if (r.data.kind === "avfuzoku" && !/^https:\/\/www\.avfuzoku-soap-deli\.com\/sitemap\.html$/.test(r.data.url)) return { error: "avfuzoku は全記事リストのURL「https://www.avfuzoku-soap-deli.com/sitemap.html」を入力してください" } as const;
   if (r.data.kind === "avzoku" && !/^https:\/\/avzoku\.com\/schedule\//.test(r.data.url)) return { error: "avzoku は「https://avzoku.com/schedule/〜」の出勤一覧ページのURLを入力してください" } as const;
   if (r.data.kind === "cityheaven" && !/^https:\/\/www\.cityheaven\.net\//.test(r.data.url)) return { error: "シティヘブンは「https://www.cityheaven.net/〜」のURLを入力してください（地域を限定する場合は /tokyo/ などを含めてください）" } as const;
   if (enabled && !termsConfirmed) return { error: "有効にするには、取り込み元の規約で自動取得が許されていることを確認し「規約確認済み」にチェックしてください" } as const;

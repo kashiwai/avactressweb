@@ -129,6 +129,7 @@ export function SourceFields({ source, shopOptions }: { source?: DataSource; sho
         options={[
           { value: "json_feed", label: "JSONフィード（店舗提供）" },
           { value: "avzoku", label: "avzoku（許可済みまとめサイト）" },
+          { value: "avfuzoku", label: "avfuzoku-soap-deli（許可済み・在籍情報のみ）" },
           { value: "cityheaven", label: "シティヘブン（セクシー女優の本日出勤）" },
         ]}
       />
@@ -140,7 +141,7 @@ export function SourceFields({ source, shopOptions }: { source?: DataSource; sho
       />
       <Field label="巡回ページ数（まとめサイト型）" name="maxPages" type="number" min={1} max={14} defaultValue={source?.maxPages ?? 7} hint="1地域あたり何ページまで見るか（1ページ100人）" />
       <div className="sm:col-span-2">
-        <Field label="取り込み元のURL" name="url" type="url" required maxLength={1000} defaultValue={source?.url} hint="avzoku の例：https://avzoku.com/schedule/tokyo-deliveryhealth/　シティヘブンの例：https://www.cityheaven.net/tokyo/（地域を限定しない場合は https://www.cityheaven.net/ ）" />
+        <Field label="取り込み元のURL" name="url" type="url" required maxLength={1000} defaultValue={source?.url} hint="avzoku の例：https://avzoku.com/schedule/tokyo-deliveryhealth/　avfuzoku の例：https://www.avfuzoku-soap-deli.com/sitemap.html　シティヘブンの例：https://www.cityheaven.net/tokyo/（地域を限定しない場合は https://www.cityheaven.net/ ）" />
       </div>
       <div className="space-y-3 sm:col-span-2">
         <CheckboxField

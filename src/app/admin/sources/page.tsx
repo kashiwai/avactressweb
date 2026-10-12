@@ -25,7 +25,7 @@ export default async function AdminSourcesPage() {
             {rows.map(({ d, s }) => (
               <tr key={d.id} className="hover:bg-surface-2/50">
                 <Td><Link href={`/admin/sources/${d.id}`} className="font-medium text-accent hover:underline">{d.name}</Link></Td>
-                <Td>{s?.name ?? (d.kind === "avzoku" ? "複数（ページから自動判定）" : "—")}</Td>
+                <Td>{s?.name ?? (d.kind === "avzoku" || d.kind === "avfuzoku" ? "複数（ページから自動判定）" : "—")}</Td>
                 <Td>{d.enabled ? <Badge tone="ok">有効</Badge> : <Badge>停止中</Badge>} {!d.termsConfirmed && <Badge tone="warn">規約未確認</Badge>}</Td>
                 <Td>{formatDateTimeJst(d.lastRunAt)}</Td>
                 <Td className="max-w-xs truncate text-xs">{d.lastStatus ?? "—"}</Td>
