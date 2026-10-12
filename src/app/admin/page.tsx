@@ -83,7 +83,7 @@ export default async function AdminDashboard() {
             <ul className="divide-y divide-line text-sm">
               {newRemovals.map((r) => (
                 <li key={r.id} className="flex items-center justify-between gap-2 py-2">
-                  <Link href={`/admin/removals/${r.id}`} className="truncate hover:text-accent">
+                  <Link prefetch={false} href={`/admin/removals/${r.id}`} className="truncate hover:text-accent">
                     {r.targetText}
                   </Link>
                   <span className="shrink-0 text-xs text-muted">{formatDateTimeJst(r.createdAt)}</span>
@@ -108,7 +108,7 @@ export default async function AdminDashboard() {
                 ))}
               </div>
               <p className="mt-2 text-xs text-muted">お店がAV女優として公表しているか確認のうえ、該当する場合は在籍を登録してください（源氏名を完全一致させると次回から反映されます）。</p>
-              <Link href="/admin/enrollments/new" className="mt-2 inline-block text-sm text-accent underline">在籍を登録する</Link>
+              <Link prefetch={false} href="/admin/enrollments/new" className="mt-2 inline-block text-sm text-accent underline">在籍を登録する</Link>
             </>
           )}
         </Card>
@@ -121,7 +121,7 @@ export default async function AdminDashboard() {
             <ul className="divide-y divide-line text-sm">
               {stale.map((s) => (
                 <li key={s.id} className="flex items-center justify-between gap-2 py-2">
-                  <Link href={`/admin/enrollments/${s.id}`} className="min-w-0 truncate hover:text-accent">
+                  <Link prefetch={false} href={`/admin/enrollments/${s.id}`} className="min-w-0 truncate hover:text-accent">
                     {s.actressName}／{s.shopName}
                     <span className="ml-2 text-xs text-muted">{s.verifiedAt}</span>
                   </Link>
@@ -139,12 +139,12 @@ export default async function AdminDashboard() {
         <Card className="p-4">
           <h2 className="mb-3 font-bold">直近の取り込み結果</h2>
           {recentRuns.length === 0 ? (
-            <EmptyState title="まだ取り込みを実行していません" action={<Link href="/admin/sources" className="text-sm text-accent underline">取り込み元を見る</Link>} />
+            <EmptyState title="まだ取り込みを実行していません" action={<Link prefetch={false} href="/admin/sources" className="text-sm text-accent underline">取り込み元を見る</Link>} />
           ) : (
             <ul className="divide-y divide-line text-sm">
               {recentRuns.map(({ run, sourceName }) => (
                 <li key={run.id} className="flex items-center justify-between gap-2 py-2">
-                  <Link href={`/admin/sources/${run.sourceId}`} className="truncate hover:text-accent">{sourceName}</Link>
+                  <Link prefetch={false} href={`/admin/sources/${run.sourceId}`} className="truncate hover:text-accent">{sourceName}</Link>
                   <span className="flex shrink-0 items-center gap-2">
                     {run.ok ? <Badge tone="ok">{run.appliedCount}件反映</Badge> : <Badge tone="warn">失敗</Badge>}
                     <span className="text-xs text-muted">{formatDateTimeJst(run.startedAt)}</span>

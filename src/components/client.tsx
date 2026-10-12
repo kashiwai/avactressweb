@@ -123,3 +123,70 @@ export function Toast() {
     </div>
   );
 }
+
+/**
+ * 画面切り替えの進行バー。リンクや検索（GETのフォーム）を押した瞬間に画面上部へ表示し、
+ * 切り替え先の画面が出たら消す。8秒を超えたら「時間がかかっています」と知らせる。
+ * （保存・削除などのボタンは SubmitButton / ActionForm 側で送信中を表示する）
+ */
+export function NavProgress() {
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const [active, setActive] = useState(false);
+  const [slow, setSlow] = useState(false);
+
+  // URLが変わった＝切り替え完了
+  useEffect(() => {
+    setActive(false);
+    setSlow(false);
+  }, [pathname, searchParams]);
+
+  useEffect(() => {
+    const onClick = (e: MouseEvent) => {
+      // Next.js のリンクは画面内で切り替えるために既定動作を打ち消すので、defaultPrevented は見ない
+      if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+      const a = (e.target as Element | null)?.closest?.("a");
+      if (!a || (a.target && a.target !== "_self") || a.hasAttribute("download")) return;
+      const url = new URL(a.href, window.location.href);
+      if (url.origin !== window.location.origin) return;
+      if (url.pathname === window.location.pathname && url.search === window.location.search) return;
+      setActive(true);
+    };
+    const onSubmit = (e: SubmitEvent) => {
+      const form = e.target as HTMLFormElement | null;
+      if (!form || e.defaultPrevented) return;
+      if ((form.getAttribute("method") ?? "get").toLowerCase() === "get") setActive(true);
+    };
+    // 戻る・進むでも切り替わる
+    const onPop = () => setActive(true);
+    // リンク側の処理より先に受け取るため、捕捉段階で登録する
+    document.addEventListener("click", onClick, true);
+    document.addEventListener("submit", onSubmit);
+    window.addEventListener("popstate", onPop);
+    return () => {
+      document.removeEventListener("click", onClick, true);
+      document.removeEventListener("submit", onSubmit);
+      window.removeEventListener("popstate", onPop);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!active) return;
+    const t = window.setTimeout(() => setSlow(true), 8000);
+    return () => window.clearTimeout(t);
+  }, [active]);
+
+  if (!active) return null;
+  return (
+    <>
+      <div className="fixed inset-x-0 top-0 z-[2147483640] h-1 overflow-hidden bg-accent/20" role="progressbar" aria-label="読み込み中">
+        <div className="h-full w-1/3 animate-[navprogress_1.1s_ease-in-out_infinite] bg-accent" />
+      </div>
+      {slow && (
+        <div role="status" aria-live="polite" className="fixed left-1/2 top-3 z-[2147483640] -translate-x-1/2 rounded-full border border-line bg-surface px-4 py-1.5 text-xs text-muted shadow">
+          読み込みに時間がかかっています。そのままお待ちください…
+        </div>
+      )}
+    </>
+  );
+}

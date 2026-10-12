@@ -49,7 +49,7 @@ export default async function CandidatesPage({ searchParams }: PageProps<"/admin
 
       <div className="flex flex-wrap gap-2 text-sm">
         {(Object.keys(STATUS) as Array<keyof typeof STATUS>).map((k) => (
-          <Link
+          <Link prefetch={false}
             key={k}
             href={`/admin/candidates?status=${k}`}
             className={status === k ? "rounded-lg bg-accent px-3 py-1.5 text-white" : "rounded-lg border border-line px-3 py-1.5 text-muted hover:text-foreground"}

@@ -60,8 +60,8 @@ export default async function AdminEnrollmentDetail({ params, searchParams }: Pa
             <span className="text-muted">確認日：</span>{e.verifiedAt} {stale && <Badge tone="warn">30日以上未確認</Badge>}
           </div>
           <div className="flex gap-3 pt-1">
-            <Link href={`/admin/actresses/${a.id}`} className="text-accent hover:underline">女優の詳細</Link>
-            <Link href={`/admin/shops/${s.id}`} className="text-accent hover:underline">店舗の詳細</Link>
+            <Link prefetch={false} href={`/admin/actresses/${a.id}`} className="text-accent hover:underline">女優の詳細</Link>
+            <Link prefetch={false} href={`/admin/shops/${s.id}`} className="text-accent hover:underline">店舗の詳細</Link>
           </div>
         </div>
         <form action={reverifyEnrollment}>

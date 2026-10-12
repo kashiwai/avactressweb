@@ -25,7 +25,7 @@ export default async function AdminSourceDetail({ params }: PageProps<"/admin/so
     <div className="space-y-6">
       <PageHeader
         title={d.name}
-        description={<>対象：{s ? <Link href={`/admin/shops/${s.id}`} className="text-accent hover:underline">{s.name}</Link> : "複数の店舗（ページから自動判定）"}　{d.enabled ? <Badge tone="ok">有効</Badge> : <Badge>停止中</Badge>} {d.termsConfirmed ? <Badge tone="info">規約確認済み</Badge> : <Badge tone="warn">規約未確認</Badge>}</>}
+        description={<>対象：{s ? <Link prefetch={false} href={`/admin/shops/${s.id}`} className="text-accent hover:underline">{s.name}</Link> : "複数の店舗（ページから自動判定）"}　{d.enabled ? <Badge tone="ok">有効</Badge> : <Badge>停止中</Badge>} {d.termsConfirmed ? <Badge tone="info">規約確認済み</Badge> : <Badge tone="warn">規約未確認</Badge>}</>}
         actions={
           <>
             <form action={runSourceNow}>

@@ -9,6 +9,7 @@ import { audit, getCurrentUser, hashPassword, requireAdmin, requireShop } from "
 import { addDays, dateRange, isYmd, todayJst } from "@/lib/dates";
 import { runSource } from "@/lib/ingest/run";
 import { drainQueue, enqueueSource, isQueuedKind } from "@/lib/ingest/queue";
+import { RECOMMENDED_SOURCES } from "@/lib/ingest/recommended";
 import { ignoreCandidates, linkCandidate } from "@/lib/ingest/cityheaven-run";
 import { GENRES } from "@/lib/genres";
 import { dmmConfigured, searchDmmActress } from "@/lib/dmm";
@@ -561,6 +562,35 @@ export async function fillDmmImages(): Promise<void> {
     msg(
       "/admin/actresses",
       `DMMから${updated}人の写真とIDを取り込みました。同名の候補が複数：${ambiguous}人、見つからず：${notFound}人、通信失敗：${failed}人。${rest}`,
+    ),
+  );
+}
+
+/** 許可済みの取り込み元をまとめて登録する。登録済みのURLはページ数だけ推奨値に合わせ、有効・停止の状態は変えない */
+export async function registerRecommendedSources(): Promise<void> {
+  const u = await requireAdmin();
+  const existing = await db.select().from(dataSources);
+  let created = 0;
+  let updated = 0;
+  for (const r of RECOMMENDED_SOURCES) {
+    const hit = existing.find((e) => e.url === r.url);
+    if (hit) {
+      if (hit.maxPages !== r.maxPages) {
+        await db.update(dataSources).set({ maxPages: r.maxPages }).where(eq(dataSources.id, hit.id));
+        updated++;
+      }
+      continue;
+    }
+    await db.insert(dataSources).values({ name: r.name, kind: r.kind, url: r.url, maxPages: r.maxPages, enabled: true, termsConfirmed: true });
+    created++;
+  }
+  await audit(u.id, "source.register_recommended", "data_sources", `created=${created} updated=${updated}`);
+  redirect(
+    msg(
+      "/admin/sources",
+      created || updated
+        ? `取り込み元を${created}件登録し、${updated}件のページ数を見直しました。10分以内に自動で取り込みが始まります。`
+        : "おすすめの取り込み元は、すべて登録済みです。",
     ),
   );
 }

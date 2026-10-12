@@ -73,12 +73,12 @@ export default async function AdminActressDetail({ params }: PageProps<"/admin/a
             <tbody>
               {enr.map(({ e, s }) => (
                 <tr key={e.id}>
-                  <Td><Link href={`/admin/shops/${s.id}`} className="text-accent hover:underline">{s.name}</Link><span className="block text-xs text-muted">{prefName(s.prefCode)}</span></Td>
+                  <Td><Link prefetch={false} href={`/admin/shops/${s.id}`} className="text-accent hover:underline">{s.name}</Link><span className="block text-xs text-muted">{prefName(s.prefCode)}</span></Td>
                   <Td>{e.shopDisplayName}</Td>
                   <Td><a href={e.sourceUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-accent underline">公表ページ</a></Td>
                   <Td>{e.verifiedAt}</Td>
                   <Td>{e.status === "active" ? <Badge tone="ok">在籍中</Badge> : <Badge>退店</Badge>}</Td>
-                  <Td><Link href={`/admin/enrollments/${e.id}`} className="text-accent hover:underline">出勤を編集</Link></Td>
+                  <Td><Link prefetch={false} href={`/admin/enrollments/${e.id}`} className="text-accent hover:underline">出勤を編集</Link></Td>
                 </tr>
               ))}
             </tbody>
@@ -122,7 +122,7 @@ export default async function AdminActressDetail({ params }: PageProps<"/admin/a
             <ul className="divide-y divide-line text-sm">
               {reqs.map((r) => (
                 <li key={r.id} className="flex items-center justify-between py-2">
-                  <Link href={`/admin/removals/${r.id}`} className="hover:text-accent">{formatDateTimeJst(r.createdAt)} {r.requesterName}</Link>
+                  <Link prefetch={false} href={`/admin/removals/${r.id}`} className="hover:text-accent">{formatDateTimeJst(r.createdAt)} {r.requesterName}</Link>
                   <Badge tone={r.status === "new" ? "warn" : "muted"}>{{ new: "新規", in_progress: "対応中", done: "完了", rejected: "却下" }[r.status]}</Badge>
                 </li>
               ))}

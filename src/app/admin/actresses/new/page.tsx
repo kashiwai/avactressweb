@@ -30,7 +30,7 @@ export default async function NewActressPage({ searchParams }: PageProps<"/admin
           result.items.length === 0 ? <p className="mt-3 text-sm text-muted">見つかりませんでした。</p> : (
             <div className="mt-3 grid gap-2 sm:grid-cols-2">
               {result.items.map((a) => (
-                <Link
+                <Link prefetch={false}
                   key={a.id}
                   href={`/admin/actresses/new?${new URLSearchParams({ name: a.name, kana: a.ruby, dmmActressId: a.id, imageUrl: a.imageUrl })}`}
                   className="flex items-center gap-2 rounded-lg border border-line p-2 text-sm hover:border-rose-500/40"

@@ -33,7 +33,7 @@ export default async function AdminRemovalDetail({ params }: PageProps<"/admin/r
       {target && (
         <Card className="flex flex-wrap items-center justify-between gap-3 p-5">
           <div className="text-sm">
-            対象の女優：<Link href={`/admin/actresses/${target.id}`} className="text-accent hover:underline">{target.name}</Link>{" "}
+            対象の女優：<Link prefetch={false} href={`/admin/actresses/${target.id}`} className="text-accent hover:underline">{target.name}</Link>{" "}
             {target.optedOut ? <Badge tone="warn">掲載停止済み</Badge> : <Badge tone="ok">掲載中</Badge>}
           </div>
           {!target.optedOut && (
@@ -55,7 +55,7 @@ export default async function AdminRemovalDetail({ params }: PageProps<"/admin/r
           <SubmitButton>保存する</SubmitButton>
         </ActionForm>
       </Card>
-      <Link href="/admin/removals" className="text-sm text-muted underline hover:text-foreground">一覧へ戻る</Link>
+      <Link prefetch={false} href="/admin/removals" className="text-sm text-muted underline hover:text-foreground">一覧へ戻る</Link>
     </div>
   );
 }

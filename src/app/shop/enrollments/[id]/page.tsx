@@ -31,7 +31,7 @@ export default async function ShopEnrollmentPage({ params, searchParams }: PageP
     .where(and(eq(schedules.enrollmentId, e.id), gte(schedules.workDate, from), lte(schedules.workDate, addDays(from, EDITOR_DAYS - 1))));
   return (
     <div className="space-y-4">
-      <Link href="/shop" className="text-sm text-muted underline hover:text-foreground">在籍一覧へ戻る</Link>
+      <Link prefetch={false} href="/shop" className="text-sm text-muted underline hover:text-foreground">在籍一覧へ戻る</Link>
       <PageHeader title={`${a.name} の出勤`} description={`店での名前：${e.shopDisplayName}`} />
       <ScheduleEditor enrollmentId={e.id} from={from} rows={sch} basePath={`/shop/enrollments/${e.id}`} />
     </div>

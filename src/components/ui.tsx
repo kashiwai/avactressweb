@@ -30,7 +30,7 @@ export function LinkButton({
   className,
   ...props
 }: ComponentProps<typeof Link> & { variant?: BtnVariant }) {
-  return <Link className={cn(btnBase, btnVariants[variant], className)} {...props} />;
+  return <Link prefetch={false} className={cn(btnBase, btnVariants[variant], className)} {...props} />;
 }
 
 export function Card({ className, ...props }: ComponentProps<"div">) {

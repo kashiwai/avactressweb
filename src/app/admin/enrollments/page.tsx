@@ -57,8 +57,8 @@ export default async function AdminEnrollmentsPage({ searchParams }: PageProps<"
           <tbody>
             {rows.map(({ e, a, s, t }) => (
               <tr key={e.id} className="hover:bg-surface-2/50">
-                <Td><Link href={`/admin/enrollments/${e.id}`} className="font-medium text-accent hover:underline">{a.name}</Link></Td>
-                <Td><Link href={`/admin/shops/${s.id}`} className="hover:text-accent">{s.name}</Link></Td>
+                <Td><Link prefetch={false} href={`/admin/enrollments/${e.id}`} className="font-medium text-accent hover:underline">{a.name}</Link></Td>
+                <Td><Link prefetch={false} href={`/admin/shops/${s.id}`} className="hover:text-accent">{s.name}</Link></Td>
                 <Td>{e.shopDisplayName}</Td>
                 <Td>{e.verifiedAt}</Td>
                 <Td>{t ? (t.status === "working" ? <Badge tone="ok">出勤 {hm(t.startTime)}</Badge> : <Badge>休み</Badge>) : <span className="text-muted">未定</span>}</Td>

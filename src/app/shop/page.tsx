@@ -35,10 +35,10 @@ export default async function ShopHome() {
           <tbody>
             {rows.map(({ e, a, t }) => (
               <tr key={e.id}>
-                <Td><Link href={`/shop/enrollments/${e.id}`} className="font-medium text-accent hover:underline">{a.name}</Link></Td>
+                <Td><Link prefetch={false} href={`/shop/enrollments/${e.id}`} className="font-medium text-accent hover:underline">{a.name}</Link></Td>
                 <Td>{e.shopDisplayName}</Td>
                 <Td>{t ? (t.status === "working" ? <Badge tone="ok">出勤 {hm(t.startTime)}〜{hm(t.endTime)}</Badge> : <Badge>休み</Badge>) : <span className="text-muted">未入力</span>}</Td>
-                <Td><Link href={`/shop/enrollments/${e.id}`} className="text-accent hover:underline">出勤を入力</Link></Td>
+                <Td><Link prefetch={false} href={`/shop/enrollments/${e.id}`} className="text-accent hover:underline">出勤を入力</Link></Td>
               </tr>
             ))}
           </tbody>

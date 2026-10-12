@@ -1,7 +1,9 @@
 import StatusBeacon from "../components/soloptilink/StatusBeacon";
 import ChunkRecovery from "../lib/self-recovery/ChunkRecovery";
 import ConnectionGuard from "../lib/self-recovery/ConnectionGuard";
+import { Suspense } from "react";
 import type { Metadata } from "next";
+import { NavProgress } from "@/components/client";
 import "./globals.css";
 import { SITE_NAME } from "@/lib/site";
 
@@ -16,6 +18,10 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
     // ブラウザ拡張（UI.Vision 等）が <html> に属性を足しても警告を出さない（この要素の属性のみが対象）
     <html lang="ja" className="h-full antialiased" suppressHydrationWarning>
       <body className="min-h-full flex flex-col">
+        {/* 画面切り替えの進行バー（全画面共通） */}
+        <Suspense fallback={null}>
+          <NavProgress />
+        </Suspense>
         {/* SOLOPTILINK-STATUS-BEACON:BEGIN 生成物の状態表示(自動注入・この区間は削除しないでください) */}
         <StatusBeacon />
         {/* SOLOPTILINK-STATUS-BEACON:END */}

@@ -22,10 +22,10 @@ export default async function AdminUsersPage() {
         <tbody>
           {rows.map((u) => (
             <tr key={u.id} className="hover:bg-surface-2/50">
-              <Td><Link href={`/admin/users/${u.id}`} className="text-accent hover:underline">{u.email}</Link></Td>
+              <Td><Link prefetch={false} href={`/admin/users/${u.id}`} className="text-accent hover:underline">{u.email}</Link></Td>
               <Td>{u.displayName || "—"}</Td>
               <Td>{u.role === "admin" ? <Badge tone="accent">運営者</Badge> : <Badge tone="info">お店</Badge>}</Td>
-              <Td>{u.shopId ? <Link href={`/admin/shops/${u.shopId}`} className="hover:text-accent">{u.shopName}</Link> : "—"}</Td>
+              <Td>{u.shopId ? <Link prefetch={false} href={`/admin/shops/${u.shopId}`} className="hover:text-accent">{u.shopName}</Link> : "—"}</Td>
               <Td>{formatDateTimeJst(u.createdAt)}</Td>
             </tr>
           ))}

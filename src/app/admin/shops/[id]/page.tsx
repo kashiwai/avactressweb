@@ -68,11 +68,11 @@ export default async function AdminShopDetail({ params }: PageProps<"/admin/shop
             <tbody>
               {enr.map(({ e, a, s }) => (
                 <tr key={e.id}>
-                  <Td><Link href={`/admin/actresses/${a.id}`} className="text-accent hover:underline">{a.name}</Link></Td>
+                  <Td><Link prefetch={false} href={`/admin/actresses/${a.id}`} className="text-accent hover:underline">{a.name}</Link></Td>
                   <Td>{e.shopDisplayName}</Td>
                   <Td>{e.status === "active" ? <Badge tone="ok">在籍中</Badge> : <Badge>退店</Badge>}</Td>
                   <Td>{s ? (s.status === "working" ? <Badge tone="ok">出勤 {hm(s.startTime)}</Badge> : <Badge>休み</Badge>) : <span className="text-muted">未定</span>}</Td>
-                  <Td><Link href={`/admin/enrollments/${e.id}`} className="text-accent hover:underline">出勤を編集</Link></Td>
+                  <Td><Link prefetch={false} href={`/admin/enrollments/${e.id}`} className="text-accent hover:underline">出勤を編集</Link></Td>
                 </tr>
               ))}
             </tbody>
@@ -84,12 +84,12 @@ export default async function AdminShopDetail({ params }: PageProps<"/admin/shop
         <Card className="p-4">
           <div className="mb-2 flex items-center justify-between">
             <h2 className="font-bold">取り込み元</h2>
-            <Link href="/admin/sources/new" className="text-sm text-accent underline">追加</Link>
+            <Link prefetch={false} href="/admin/sources/new" className="text-sm text-accent underline">追加</Link>
           </div>
           {sources.length === 0 ? <p className="text-sm text-muted">登録されていません。</p> : (
             <ul className="space-y-1 text-sm">
               {sources.map((s) => (
-                <li key={s.id}><Link href={`/admin/sources/${s.id}`} className="text-accent hover:underline">{s.name}</Link> {s.enabled ? <Badge tone="ok">有効</Badge> : <Badge>停止中</Badge>}</li>
+                <li key={s.id}><Link prefetch={false} href={`/admin/sources/${s.id}`} className="text-accent hover:underline">{s.name}</Link> {s.enabled ? <Badge tone="ok">有効</Badge> : <Badge>停止中</Badge>}</li>
               ))}
             </ul>
           )}
@@ -97,11 +97,11 @@ export default async function AdminShopDetail({ params }: PageProps<"/admin/shop
         <Card className="p-4">
           <div className="mb-2 flex items-center justify-between">
             <h2 className="font-bold">お店アカウント</h2>
-            <Link href={`/admin/users/new?shop=${shop.id}`} className="text-sm text-accent underline">発行</Link>
+            <Link prefetch={false} href={`/admin/users/new?shop=${shop.id}`} className="text-sm text-accent underline">発行</Link>
           </div>
           {accounts.length === 0 ? <p className="text-sm text-muted">まだありません。発行すると、お店が自分で出勤を入力できます。</p> : (
             <ul className="space-y-1 text-sm">
-              {accounts.map((u) => <li key={u.id}><Link href={`/admin/users/${u.id}`} className="text-accent hover:underline">{u.email}</Link></li>)}
+              {accounts.map((u) => <li key={u.id}><Link prefetch={false} href={`/admin/users/${u.id}`} className="text-accent hover:underline">{u.email}</Link></li>)}
             </ul>
           )}
         </Card>

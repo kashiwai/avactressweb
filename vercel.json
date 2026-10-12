@@ -1,3 +1,4 @@
 {
+  "regions": ["hnd1"],
   "crons": [{ "path": "/api/cron/ingest", "schedule": "*/10 * * * *" }]
 }

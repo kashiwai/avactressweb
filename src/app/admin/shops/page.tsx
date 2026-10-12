@@ -53,7 +53,7 @@ export default async function AdminShopsPage({ searchParams }: PageProps<"/admin
             {rows.map(({ shop, enrolled }) => (
               <tr key={shop.id} className="hover:bg-surface-2/50">
                 <Td>
-                  <Link href={`/admin/shops/${shop.id}`} className="font-medium text-accent hover:underline">{shop.name}</Link>
+                  <Link prefetch={false} href={`/admin/shops/${shop.id}`} className="font-medium text-accent hover:underline">{shop.name}</Link>
                 </Td>
                 <Td>{prefName(shop.prefCode)} {shop.area}</Td>
                 <Td>{shop.genre}</Td>
