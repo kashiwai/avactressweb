@@ -257,3 +257,9 @@ export type Schedule = typeof schedules.$inferSelect;
 export type DataSource = typeof dataSources.$inferSelect;
 export type User = typeof users.$inferSelect;
 export type CandidateGirl = typeof candidateGirls.$inferSelect;
+
+// 定期処理の実行中の札（同じ処理が重なって走らないようにする）
+export const jobLeases = pgTable("job_leases", {
+  name: text("name").primaryKey(),
+  lockedUntil: timestamp("locked_until", { withTimezone: true }).notNull(),
+});

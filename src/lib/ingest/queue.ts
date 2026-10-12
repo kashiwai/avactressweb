@@ -5,7 +5,7 @@
 import "server-only";
 import { and, asc, eq, gte, inArray, isNull, lt, notInArray, sql } from "drizzle-orm";
 import { db } from "@/db";
-import { actresses, dataSources, enrollments, ingestQueue, ingestRuns, shops, type DataSource } from "@/db/schema";
+import { actresses, dataSources, enrollments, ingestQueue, ingestRuns, jobLeases, shops, type DataSource } from "@/db/schema";
 import { addDays, todayJst } from "../dates";
 import { applyAggregatedActress } from "./aggregator";
 import { parseAvzokuActress, parseAvzokuList } from "./avzoku";
@@ -285,4 +285,22 @@ async function applyAvfuzokuPage(html: string, url: string, today: string): Prom
     }
   }
   return { result, note: unknown.length ? `${a.name}：都道府県不明の店 ${unknown.join("、")}` : null };
+}
+
+/**
+ * 実行中の札を取る。取れたときだけ true（ほかの実行が札を持っていれば false）。
+ * 札には有効期限を付け、途中で強制終了されても期限が来れば次の実行が取れるようにする。
+ */
+export async function acquireLease(name: string, ttlMs: number): Promise<boolean> {
+  const until = new Date(Date.now() + ttlMs);
+  const rows = await db
+    .insert(jobLeases)
+    .values({ name, lockedUntil: until })
+    .onConflictDoUpdate({ target: jobLeases.name, set: { lockedUntil: until }, setWhere: lt(jobLeases.lockedUntil, new Date()) })
+    .returning({ name: jobLeases.name });
+  return rows.length > 0;
+}
+
+export async function releaseLease(name: string): Promise<void> {
+  await db.update(jobLeases).set({ lockedUntil: new Date() }).where(eq(jobLeases.name, name));
 }

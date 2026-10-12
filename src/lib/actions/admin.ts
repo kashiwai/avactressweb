@@ -8,7 +8,7 @@ import { actresses, affiliateLinks, dataSources, enrollments, removalRequests, s
 import { audit, getCurrentUser, hashPassword, requireAdmin, requireShop } from "@/lib/auth";
 import { addDays, dateRange, isYmd, todayJst } from "@/lib/dates";
 import { runSource } from "@/lib/ingest/run";
-import { drainQueue, enqueueSource, isQueuedKind } from "@/lib/ingest/queue";
+import { acquireLease, drainQueue, enqueueSource, isQueuedKind, releaseLease } from "@/lib/ingest/queue";
 import { RECOMMENDED_SOURCES } from "@/lib/ingest/recommended";
 import { ignoreCandidates, linkCandidate } from "@/lib/ingest/cityheaven-run";
 import { GENRES } from "@/lib/genres";
@@ -399,6 +399,11 @@ export async function runSourceNow(fd: FormData): Promise<void> {
   if (!s) redirect("/admin/sources");
   // まとめサイト型は待ち行列で処理する。この場で約3分処理し、残りは10分ごとの自動実行が続きから処理する
   if (isQueuedKind(s.kind)) {
+    // 自動実行が動いている最中は重ねて走らせない
+    if (!(await acquireLease("ingest", 310_000))) {
+      redirect(msg(`/admin/sources/${id}`, "いま自動の取り込みが実行中です。数分おいてから、もう一度お試しください。"));
+    }
+    try {
     const q = await enqueueSource(s, { force: true });
     if (q.error) {
       await audit(u.id, "source.run", `source:${id}`, `error=${q.error}`);
@@ -413,6 +418,9 @@ export async function runSourceNow(fd: FormData): Promise<void> {
           (d.remaining ? `残り${d.remaining}人分は、10分ごとの自動実行で続きから処理されます。` : "すべて完了しました。"),
       ),
     );
+    } finally {
+      await releaseLease("ingest");
+    }
   }
   const r = await runSource(s);
   await audit(u.id, "source.run", `source:${id}`, r.ok ? `applied=${r.applied}` : `error=${r.error}`);

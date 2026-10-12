@@ -5,7 +5,7 @@ import { and, eq, gte } from "drizzle-orm";
 import { db } from "@/db";
 import { dataSources, ingestRuns } from "@/db/schema";
 import { todayJst } from "@/lib/dates";
-import { closeAbandonedRuns, drainQueue, enqueueDueSources, isQueuedKind, pruneQueue } from "@/lib/ingest/queue";
+import { acquireLease, closeAbandonedRuns, drainQueue, enqueueDueSources, isQueuedKind, pruneQueue, releaseLease } from "@/lib/ingest/queue";
 import { runSource } from "@/lib/ingest/run";
 
 export const dynamic = "force-dynamic";
@@ -26,6 +26,16 @@ function authorized(req: Request): boolean {
 
 export async function GET(req: Request) {
   if (!authorized(req)) return Response.json({ error: "unauthorized" }, { status: 401 });
+  // 前の実行がまだ動いていれば、重ねて走らせない（札の期限は上限の300秒より少し長くする）
+  if (!(await acquireLease("ingest", 310_000))) return Response.json({ ok: true, skipped: "前の取り込みがまだ実行中です" });
+  try {
+    return await run();
+  } finally {
+    await releaseLease("ingest");
+  }
+}
+
+async function run() {
   const deadline = Date.now() + BUDGET_MS;
   await pruneQueue();
   const abandoned = await closeAbandonedRuns();
