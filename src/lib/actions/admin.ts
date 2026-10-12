@@ -8,6 +8,7 @@ import { actresses, affiliateLinks, dataSources, enrollments, removalRequests, s
 import { audit, getCurrentUser, hashPassword, requireAdmin, requireShop } from "@/lib/auth";
 import { addDays, dateRange, isYmd, todayJst } from "@/lib/dates";
 import { runSource } from "@/lib/ingest/run";
+import { drainQueue, enqueueSource, isQueuedKind } from "@/lib/ingest/queue";
 import { ignoreCandidates, linkCandidate } from "@/lib/ingest/cityheaven-run";
 import { GENRES } from "@/lib/genres";
 import { dmmConfigured, searchDmmActress } from "@/lib/dmm";
@@ -394,6 +395,23 @@ export async function runSourceNow(fd: FormData): Promise<void> {
   const id = idOf(fd);
   const [s] = await db.select().from(dataSources).where(eq(dataSources.id, id));
   if (!s) redirect("/admin/sources");
+  // まとめサイト型は待ち行列で処理する。この場で約3分処理し、残りは10分ごとの自動実行が続きから処理する
+  if (isQueuedKind(s.kind)) {
+    const q = await enqueueSource(s, { force: true });
+    if (q.error) {
+      await audit(u.id, "source.run", `source:${id}`, `error=${q.error}`);
+      redirect(msg(`/admin/sources/${id}`, `取り込みに失敗しました：${q.error}`));
+    }
+    const d = await drainQueue(Date.now() + 180_000);
+    await audit(u.id, "source.run", `source:${id}`, `queued=${q.queued} processed=${d.processed} remaining=${d.remaining}`);
+    redirect(
+      msg(
+        `/admin/sources/${id}`,
+        `${q.queued}人分の取り込みを始め、${d.processed}人分を処理しました（出勤${d.applied}件を反映）。` +
+          (d.remaining ? `残り${d.remaining}人分は、10分ごとの自動実行で続きから処理されます。` : "すべて完了しました。"),
+      ),
+    );
+  }
   const r = await runSource(s);
   await audit(u.id, "source.run", `source:${id}`, r.ok ? `applied=${r.applied}` : `error=${r.error}`);
   redirect(

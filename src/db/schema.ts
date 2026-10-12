@@ -142,6 +142,28 @@ export const ingestRuns = pgTable(
   (t) => [index("ingest_runs_source_idx").on(t.sourceId)],
 );
 
+// 取り込みの待ち行列。一覧から集めた女優ページを、実行時間の上限に収まるよう少しずつ処理する
+export const queueStatusEnum = pgEnum("queue_status", ["pending", "done", "error"]);
+export const ingestQueue = pgTable(
+  "ingest_queue",
+  {
+    id: serial("id").primaryKey(),
+    sourceId: integer("source_id").notNull().references(() => dataSources.id, { onDelete: "cascade" }),
+    runId: integer("run_id").references(() => ingestRuns.id, { onDelete: "set null" }),
+    // 取り込み日（日本時間）。同じ日に同じページを2回処理しない
+    runDate: date("run_date", { mode: "string" }).notNull(),
+    url: text("url").notNull(),
+    status: queueStatusEnum("status").notNull().default("pending"),
+    attempts: integer("attempts").notNull().default(0),
+    lastError: text("last_error"),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("ingest_queue_source_date_url_uq").on(t.sourceId, t.runDate, t.url),
+    index("ingest_queue_status_idx").on(t.status, t.runDate),
+  ],
+);
+
 // 削除依頼
 export const removalRequests = pgTable("removal_requests", {
   id: serial("id").primaryKey(),

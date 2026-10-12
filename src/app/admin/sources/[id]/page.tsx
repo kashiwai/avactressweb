@@ -11,6 +11,8 @@ import { Badge, Card, EmptyState, LinkButton, PageHeader, Table, Td, Th } from "
 import { FeedFormatHelp } from "../help";
 
 export const dynamic = "force-dynamic";
+// 「今すぐ実行」で約3分処理するため、実行時間の上限を延ばす
+export const maxDuration = 300;
 
 export default async function AdminSourceDetail({ params }: PageProps<"/admin/sources/[id]">) {
   const id = Number((await params).id);
