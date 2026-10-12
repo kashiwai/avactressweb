@@ -5,7 +5,7 @@ import { and, eq, gte } from "drizzle-orm";
 import { db } from "@/db";
 import { dataSources, ingestRuns } from "@/db/schema";
 import { todayJst } from "@/lib/dates";
-import { drainQueue, enqueueDueSources, isQueuedKind, pruneQueue } from "@/lib/ingest/queue";
+import { closeAbandonedRuns, drainQueue, enqueueDueSources, isQueuedKind, pruneQueue } from "@/lib/ingest/queue";
 import { runSource } from "@/lib/ingest/run";
 
 export const dynamic = "force-dynamic";
@@ -28,6 +28,7 @@ export async function GET(req: Request) {
   if (!authorized(req)) return Response.json({ error: "unauthorized" }, { status: 401 });
   const deadline = Date.now() + BUDGET_MS;
   await pruneQueue();
+  const abandoned = await closeAbandonedRuns();
 
   // 待ち行列を使わない種類（JSONフィード等）は、従来どおり1日1回まとめて実行する
   const today = todayJst();
@@ -49,5 +50,5 @@ export async function GET(req: Request) {
 
   const enqueued = await enqueueDueSources(deadline);
   const drained = await drainQueue(deadline);
-  return Response.json({ ok: true, othersRun, enqueued, ...drained });
+  return Response.json({ ok: true, abandoned, othersRun, enqueued, ...drained });
 }

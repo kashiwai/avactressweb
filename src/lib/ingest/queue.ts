@@ -83,6 +83,26 @@ export async function enqueueSource(source: DataSource, opts: { force?: boolean;
   }
 }
 
+/**
+ * 実行時間の上限で強制終了され、終了の記録も待ち行列も残っていない実行を「時間切れ」として片付ける。
+ * これをしないと「今日は実行済み」と見なされ、その日の取り込みがやり直されない。
+ */
+export async function closeAbandonedRuns(): Promise<number> {
+  const stale = new Date(Date.now() - 10 * 60_000);
+  const rows = await db
+    .update(ingestRuns)
+    .set({ finishedAt: new Date(), ok: false, error: "実行時間の上限で途中終了しました（次の実行でやり直します）" })
+    .where(
+      and(
+        isNull(ingestRuns.finishedAt),
+        lt(ingestRuns.startedAt, stale),
+        sql`not exists (select 1 from ${ingestQueue} q where q.run_id = ${ingestRuns.id})`,
+      ),
+    )
+    .returning({ id: ingestRuns.id });
+  return rows.length;
+}
+
 /** 今日まだ一覧を読んでいない取り込み元を待ち行列へ入れる */
 export async function enqueueDueSources(deadline: number): Promise<number> {
   const today = todayJst();
@@ -99,7 +119,14 @@ export async function enqueueDueSources(deadline: number): Promise<number> {
     const [already] = await db
       .select({ id: ingestRuns.id })
       .from(ingestRuns)
-      .where(and(eq(ingestRuns.sourceId, s.id), gte(ingestRuns.startedAt, since)))
+      .where(
+        and(
+          eq(ingestRuns.sourceId, s.id),
+          gte(ingestRuns.startedAt, since),
+          // 時間切れで途中終了した実行は「実行済み」に数えない
+          sql`coalesce(${ingestRuns.error}, '') not like '実行時間の上限%'`,
+        ),
+      )
       .limit(1);
     if (already) continue;
     await enqueueSource(s, { deadline });
