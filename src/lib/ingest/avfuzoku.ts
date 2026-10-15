@@ -32,7 +32,7 @@ const AREA_PREF: Array<[RegExp, number]> = [
   [/すすきの|札幌|旭川|函館|帯広|苫小牧|北海道/, 1],
   [/青森|八戸|弘前/, 2], [/盛岡|岩手/, 3], [/仙台|国分町|宮城/, 4], [/秋田/, 5], [/山形/, 6], [/郡山|いわき|福島/, 7],
   [/水戸|土浦|つくば|日立|茨城/, 8], [/宇都宮|小山|栃木/, 9], [/高崎|前橋|太田|伊勢崎|群馬/, 10],
-  [/大宮|西川口|川口|浦和|所沢|川越|越谷|熊谷|春日部|草加|埼玉/, 11],
+  [/大宮|西川口|川口|浦和|所沢|川越|越谷|熊谷|春日部|草加|本庄|埼玉/, 11],
   [/千葉|栄町|船橋|西船橋|松戸|柏|市川|津田沼|木更津|成田/, 12],
   [/吉原|鶯谷|池袋|新宿|歌舞伎町|渋谷|五反田|品川|上野|御徒町|錦糸町|六本木|赤坂|新橋|銀座|秋葉原|町田|立川|八王子|府中|大塚|巣鴨|蒲田|大森|中野|高田馬場|恵比寿|目黒|日暮里|新小岩|葛西|小岩|北千住|赤羽|東京|Tokyo|TOKYO|青山|表参道|麻布|広尾|神田|有楽町|四谷|飯田橋|水道橋|三軒茶屋|自由が丘|二子玉川|大井町|田町|神楽坂|亀戸|両国|西日暮里|新大久保|大久保|高円寺|荻窪|練馬|板橋|成増|調布|多摩|聖蹟桜ヶ丘|吉祥寺|西東京|都内|浜松町|日本橋\(東京\)/, 13],
   [/川崎|堀之内|横浜|関内|桜木町|曙町|伊勢佐木|厚木|藤沢|相模原|大和|横須賀|小田原|平塚|神奈川/, 14],
@@ -59,7 +59,7 @@ function prefCodeOfShopUrl(url: string): number | null {
   return m ? prefCodeOfSlug(m[1]) : null;
 }
 
-const GENRE_SUFFIX = /(ソープランド|ソープ|ホテヘル|ホテルヘルス|デリヘル|デリバリーヘルス|箱ヘル|店舗型ヘルス|ヘルス|M性感|性感エステ|回春エステ|エステ|ピンサロ|SMクラブ|SM|イメクラ|オナクラ|手コキ|待ち合わせ)$/;
+const GENRE_SUFFIX = /(ニューハーフデリヘル|ニューハーフヘルス|メンエス|メンズエステ|ソープランド|ソープ|ホテヘル|ホテルヘルス|デリヘル|デリバリーヘルス|箱ヘル|店舗型ヘルス|ヘルス|M性感|性感エステ|回春エステ|エステ|ピンサロ|SMクラブ|SM|イメクラ|オナクラ|手コキ|待ち合わせ)$/;
 
 export type AvfuzokuEntry = {
   shopName: string;
@@ -80,15 +80,21 @@ export type AvfuzokuActress = {
 
 /** 「ジャルディーノ(吉原ソープ) 北川まき(PC版)」を店名・地域・業種・源氏名に分ける */
 export function parseEntryLabel(label: string): Omit<AvfuzokuEntry, "shopUrl" | "prefCode"> | null {
-  const s = label.replace(/^[→⇒▶►・\s]+/, "").replace(/[（(](PC|SP|スマホ|携帯)版?[)）]\s*$/i, "").trim();
-  const m = s.match(/^(.+?)[(（]([^()（）]+)[)）]\s*(.*)$/);
-  if (!m) return null;
-  const shopName = m[1].trim();
-  const areaGenre = m[2].trim();
+  const s = label
+    .replace(/^[→⇒▶►・\s]+/, "")
+    .replace(/\s*[（(]?(PC|SP|スマホ|携帯)版[)）]?\s*$/i, "")
+    .trim();
+  // 括弧が複数あるとき（「Elise（エリーゼ）(六本木デリヘル) 名前」）は、業種名で終わる括弧を「地域＋業種」とみなす。
+  // 見つからなければ最後の括弧を使う。店名のふりがなの括弧を地域と読み違えないため
+  const groups = [...s.matchAll(/[(（]([^()（）]+)[)）]/g)];
+  if (groups.length === 0) return null;
+  const pick = groups.find((g) => GENRE_SUFFIX.test(g[1].trim())) ?? groups[groups.length - 1];
+  const shopName = s.slice(0, pick.index).replace(/[(（][^()（）]*[)）]\s*$/, (m) => (groups.indexOf(pick) > 0 ? "" : m)).trim();
+  const areaGenre = pick[1].trim();
   const g = areaGenre.match(GENRE_SUFFIX);
   const area = g ? areaGenre.slice(0, -g[0].length).trim() : areaGenre;
   const genre = normalizeGenre(g ? g[0] : areaGenre);
-  const displayName = m[3].trim();
+  const displayName = s.slice((pick.index ?? 0) + pick[0].length).trim();
   if (!shopName) return null;
   return { shopName, area, genre, displayName };
 }
