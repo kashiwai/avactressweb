@@ -1,0 +1,1 @@
+ALTER TABLE "actresses" ADD COLUMN "dmm_checked_at" timestamp with time zone;

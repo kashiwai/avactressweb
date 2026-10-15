@@ -55,6 +55,8 @@ export const actresses = pgTable(
     name: text("name").notNull(),
     kana: text("kana").notNull().default(""),
     dmmActressId: text("dmm_actress_id"),
+    // DMM へ最後に問い合わせた日時（見つからなかった女優を毎回問い合わせ直さないため）
+    dmmCheckedAt: timestamp("dmm_checked_at", { withTimezone: true }),
     imageUrl: text("image_url").notNull().default(""),
     profile: text("profile").notNull().default(""),
     isPublished: boolean("is_published").notNull().default(true),

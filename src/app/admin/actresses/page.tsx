@@ -36,7 +36,7 @@ export default async function AdminActressesPage({ searchParams }: PageProps<"/a
           <form action={fillDmmImages} className="flex flex-wrap items-center gap-3">
             <SubmitButton variant="secondary">DMMから写真を一括取得</SubmitButton>
             <span className="text-muted">
-              DMM IDが未設定の女優（あと{missing}人）を名前で検索し、同じ名前が1人だけ見つかった女優に写真とIDを入れます。1回に40人まで・数十秒かかります。
+              DMM IDが未設定の女優（あと{missing}人）を名前で検索し、同じ名前が1人だけ見つかった女優に写真とIDを入れます。この画面からは約3分処理し、残りは10分ごとの自動実行が続きを処理します。
             </span>
           </form>
         ) : (

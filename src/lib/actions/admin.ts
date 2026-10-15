@@ -2,7 +2,7 @@
 // 管理画面の書き込み処理。各処理の冒頭で必ず権限を確認する
 import { redirect } from "next/navigation";
 import { z } from "zod";
-import { and, asc, eq, gte, isNull, lte, ne } from "drizzle-orm";
+import { and, eq, gte, lte, ne } from "drizzle-orm";
 import { db } from "@/db";
 import { actresses, affiliateLinks, dataSources, enrollments, removalRequests, schedules, shops, users } from "@/db/schema";
 import { audit, getCurrentUser, hashPassword, requireAdmin, requireShop } from "@/lib/auth";
@@ -10,9 +10,10 @@ import { addDays, dateRange, isYmd, todayJst } from "@/lib/dates";
 import { runSource } from "@/lib/ingest/run";
 import { acquireLease, drainQueue, enqueueSource, isQueuedKind, releaseLease } from "@/lib/ingest/queue";
 import { RECOMMENDED_SOURCES } from "@/lib/ingest/recommended";
+import { fillDmmPhotos } from "@/lib/dmm-fill";
 import { ignoreCandidates, linkCandidate } from "@/lib/ingest/cityheaven-run";
 import { GENRES } from "@/lib/genres";
-import { dmmConfigured, searchDmmActress } from "@/lib/dmm";
+import { dmmConfigured } from "@/lib/dmm";
 
 export type FormState = { error?: string } | undefined;
 
@@ -534,42 +535,19 @@ export async function ignoreCandidateAction(fd: FormData): Promise<void> {
 }
 
 // ---- DMM から女優の写真・女優IDを一括で取り込む ----
-// 名前が完全一致で1人に定まった女優だけを更新する。複数候補・該当なしは触らず件数だけ知らせる
-const DMM_BATCH = 40; // 1回の実行で問い合わせる人数（APIへの負担と実行時間を抑える）
-const normName = (s: string) => s.replace(/[\s　]/g, "");
+// 処理の中身は src/lib/dmm-fill.ts（自動実行と共通）
 
 export async function fillDmmImages(): Promise<void> {
   const u = await requireAdmin();
   if (!dmmConfigured()) redirect(msg("/admin/actresses", "DMMのAPIキーが未設定のため実行できません。環境変数を設定してください。"));
-  const targets = await db
-    .select({ id: actresses.id, name: actresses.name, imageUrl: actresses.imageUrl })
-    .from(actresses)
-    .where(isNull(actresses.dmmActressId))
-    .orderBy(asc(actresses.id))
-    .limit(DMM_BATCH);
-
-  let updated = 0, ambiguous = 0, notFound = 0, failed = 0;
-  for (const t of targets) {
-    const r = await searchDmmActress(t.name);
-    if (!r.ok) { failed++; continue; }
-    const exact = r.items.filter((i) => normName(i.name) === normName(t.name));
-    if (exact.length === 1) {
-      const hit = exact[0];
-      await db
-        .update(actresses)
-        .set({ dmmActressId: hit.id, imageUrl: t.imageUrl || hit.imageUrl })
-        .where(eq(actresses.id, t.id));
-      updated++;
-    } else if (exact.length > 1) ambiguous++;
-    else notFound++;
-    await new Promise((res) => setTimeout(res, 1100)); // 1秒に1件程度に抑える
-  }
-  await audit(u.id, "actress.dmm_fill", "actresses", `updated=${updated} ambiguous=${ambiguous} notFound=${notFound} failed=${failed}`);
-  const rest = targets.length === DMM_BATCH ? "（未処理の女優が残っている場合は、もう一度実行してください）" : "";
+  // 約3分処理する。残りは10分ごとの自動実行が続きを処理する
+  const r = await fillDmmPhotos(Date.now() + 180_000);
+  await audit(u.id, "actress.dmm_fill", "actresses", `updated=${r.updated} ambiguous=${r.ambiguous} notFound=${r.notFound} failed=${r.failed} remaining=${r.remaining}`);
   redirect(
     msg(
       "/admin/actresses",
-      `DMMから${updated}人の写真とIDを取り込みました。同名の候補が複数：${ambiguous}人、見つからず：${notFound}人、通信失敗：${failed}人。${rest}`,
+      `DMMから${r.updated}人の写真とIDを取り込みました。同名の候補が複数：${r.ambiguous}人、見つからず：${r.notFound}人、通信失敗：${r.failed}人。` +
+        (r.remaining ? `残り${r.remaining}人は、10分ごとの自動実行で続きから処理されます。` : ""),
     ),
   );
 }
