@@ -3,7 +3,7 @@
  "specVersion": "1.5",
  "version": 1,
  "metadata": {
-  "timestamp": "2026-10-15T20:39:45Z",
+  "timestamp": "2026-10-16T02:29:50Z",
   "tools": [
    {
     "vendor": "SoloptiLink Inc.",
@@ -23,7 +23,7 @@
    },
    {
     "name": "soloptilink:disclosure_ja",
-    "value": "版を確定できなかった部品が 21 件あります: @tailwindcss/postcss, @types/bcryptjs, @types/node, @types/react, @types/react-dom, bcryptjs, drizzle-kit, drizzle-orm, eslint, eslint-config-next"
+    "value": "版を確定できなかった部品が 22 件あります: @tailwindcss/postcss, @types/bcryptjs, @types/node, @types/react, @types/react-dom, bcryptjs, drizzle-kit, drizzle-orm, eslint, eslint-config-next"
    }
   ]
  },
@@ -155,6 +155,19 @@
     {
      "name": "declared_range",
      "value": "16.3.6"
+    }
+   ]
+  },
+  {
+   "type": "library",
+   "name": "exceljs",
+   "version": "",
+   "scope": "optional",
+   "purl": "pkg:npm/exceljs",
+   "properties": [
+    {
+     "name": "declared_range",
+     "value": "^4.4.0"
     }
    ]
   },

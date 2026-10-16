@@ -82,7 +82,7 @@ function listFiles(args: string[]): string[] {
 }
 
 // ---- 列の自動判定 ----
-function pickColumns(sample: Row): { name?: string; image?: string; url?: string } {
+function pickColumns(sample: Row): { name?: string; image?: string; url?: string; kana?: string } {
   const keys = Object.keys(sample);
   const find = (re: RegExp, valueRe?: RegExp) =>
     keys.find((k) => re.test(k) && (!valueRe || valueRe.test(sample[k] ?? ""))) ??
@@ -91,6 +91,7 @@ function pickColumns(sample: Row): { name?: string; image?: string; url?: string
     name: find(/女優名|名前|氏名|^name$|タイトル|title/i),
     image: find(/画像|写真|image|img|サムネ|photo/i, /^https?:\/\/.+\.(jpe?g|png|webp)/i),
     url: find(/URL|リンク|link|ページ|profile/i, /^https?:\/\/(www\.)?duga\.jp\//i),
+    kana: find(/読み|よみ|ふりがな|かな|kana/i),
   };
 }
 
@@ -119,13 +120,13 @@ async function main() {
   for (const f of files) rows.push(...(await readRows(f)));
   if (rows.length === 0) { console.error("no rows"); process.exit(1); }
   const cols = pickColumns(rows[0]);
-  console.log(`columns: name=${cols.name ?? "-"} image=${cols.image ?? "-"} url=${cols.url ?? "-"}`);
+  console.log(`columns: name=${cols.name ?? "-"} image=${cols.image ?? "-"} url=${cols.url ?? "-"} kana=${cols.kana ?? "-"}`);
   if (!cols.name || !cols.image) { console.error("名前と画像の列を見つけられませんでした。見出しを確認してください"); process.exit(1); }
 
   const client = postgres(process.env.DATABASE_URL!, { max: 1, prepare: !/:6543\//.test(process.env.DATABASE_URL!) });
   const db = drizzle(client, { schema });
   const all = await db
-    .select({ id: actresses.id, name: actresses.name, imageUrl: actresses.imageUrl, dugaPerformerId: actresses.dugaPerformerId })
+    .select({ id: actresses.id, name: actresses.name, kana: actresses.kana, imageUrl: actresses.imageUrl, dugaPerformerId: actresses.dugaPerformerId })
     .from(actresses);
   const byPid = new Map(all.filter((a) => a.dugaPerformerId).map((a) => [a.dugaPerformerId!, a]));
   const byName = new Map<string, typeof all>();
@@ -134,7 +135,8 @@ async function main() {
     byName.set(k, [...(byName.get(k) ?? []), a]);
   }
 
-  const st = { rows: rows.length, byPid: 0, byName: 0, photoSet: 0, kept: 0, ambiguous: 0, unmatched: 0, noImage: 0 };
+  const st = { rows: rows.length, byPid: 0, byName: 0, photoSet: 0, kept: 0, kanaSet: 0, ambiguous: 0, unmatched: 0, noImage: 0 };
+  const done = new Set<number>(); // 複数ファイルに同じ女優がいても1回だけ処理する
   for (const r of rows) {
     const name = (r[cols.name] ?? "").trim();
     const image = (r[cols.image] ?? "").trim();
@@ -148,16 +150,21 @@ async function main() {
       if (cands.length === 1) { target = cands[0]; st.byName++; }
       else { cands.length > 1 ? st.ambiguous++ : st.unmatched++; continue; }
     }
+    if (done.has(target.id)) continue;
+    done.add(target.id);
+    // よみがなは空欄のときだけ補う（DUGA の「うえき しょうこ」の空白は取り除く）
+    const kana = cols.kana ? (r[cols.kana] ?? "").replace(/[\s　]/g, "") : "";
+    const setKana = !target.kana && kana ? { kana } : {};
     // 写真は空欄か、作品の表紙（DUGA の jacket）だけ置き換える
     const replaceable = !target.imageUrl || /pic\.duga\.jp\/.*\/jacket/i.test(target.imageUrl);
-    if (!replaceable) { st.kept++; continue; }
-    if (!dryRun) {
-      await db
-        .update(actresses)
-        .set({ imageUrl: image, ...(pid && !target.dugaPerformerId ? { dugaPerformerId: pid } : {}) })
-        .where(eq(actresses.id, target.id));
+    const setPhoto = replaceable ? { imageUrl: image } : {};
+    const setPid = pid && !target.dugaPerformerId ? { dugaPerformerId: pid } : {};
+    if (!dryRun && Object.keys({ ...setKana, ...setPhoto, ...setPid }).length) {
+      await db.update(actresses).set({ ...setKana, ...setPhoto, ...setPid }).where(eq(actresses.id, target.id));
     }
-    st.photoSet++;
+    if (replaceable) st.photoSet++;
+    else st.kept++;
+    if (setKana.kana) st.kanaSet++;
   }
   console.log(`${dryRun ? "[dry-run] " : ""}${JSON.stringify(st)}`);
   await client.end();
