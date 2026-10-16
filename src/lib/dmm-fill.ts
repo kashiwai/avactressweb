@@ -5,6 +5,7 @@ import { and, asc, eq, isNull, lt, or, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { actresses } from "@/db/schema";
 import { dmmConfigured, searchDmmActress } from "@/lib/dmm";
+import { dugaConfigured, performersNamed, searchDuga } from "@/lib/duga";
 
 /** 見つからなかった女優を問い合わせ直すまでの日数（DMM 側に後から登録されることがあるため） */
 const RECHECK_DAYS = 30;
@@ -58,4 +59,56 @@ export async function fillDmmPhotos(deadline: number): Promise<DmmFillResult> {
 async function countDue(due: ReturnType<typeof and>): Promise<number> {
   const [c] = await db.select({ n: sql<number>`count(*)::int` }).from(actresses).where(due);
   return c?.n ?? 0;
+}
+
+// ---- DUGA：女優番号の紐付けと、写真（その女優が1人で出ている作品の表紙）の補完 ----
+// 同じ名前で別人が複数いる場合は紐付けない。写真は、すでに入っている場合は上書きしない
+
+export type DugaFillResult = { checked: number; linked: number; photos: number; ambiguous: number; notFound: number; failed: number; remaining: number };
+
+export async function fillDugaPhotos(deadline: number): Promise<DugaFillResult> {
+  const r: DugaFillResult = { checked: 0, linked: 0, photos: 0, ambiguous: 0, notFound: 0, failed: 0, remaining: 0 };
+  if (!dugaConfigured()) return r;
+  const due = and(
+    isNull(actresses.dugaPerformerId),
+    or(isNull(actresses.dugaCheckedAt), lt(actresses.dugaCheckedAt, new Date(Date.now() - RECHECK_DAYS * 86400_000))),
+  );
+  while (Date.now() < deadline) {
+    const batch = await db
+      .select({ id: actresses.id, name: actresses.name, imageUrl: actresses.imageUrl })
+      .from(actresses)
+      .where(due)
+      .orderBy(sql`${actresses.dugaCheckedAt} asc nulls first`, asc(actresses.id))
+      .limit(20);
+    if (batch.length === 0) break;
+    for (const t of batch) {
+      if (Date.now() > deadline) break;
+      const res = await searchDuga(t.name, { hits: 50, sort: "favorite", cache: "none" });
+      r.checked++;
+      if (!res.ok) {
+        r.failed++;
+        if (r.failed >= 5) return { ...r, remaining: await countDue(due) };
+        continue;
+      }
+      const found = performersNamed(res.items, t.name);
+      if (found.length === 1) {
+        const pid = found[0].id;
+        // その女優だけが出演している作品の表紙を写真にする（複数人の作品は別人が写るため使わない）
+        const solo = res.items.find((it) => it.performers.length === 1 && it.performers[0].id === pid && (it.jacketUrl || it.posterUrl));
+        const photo = solo ? solo.jacketUrl || solo.posterUrl : "";
+        await db
+          .update(actresses)
+          .set({ dugaPerformerId: pid, imageUrl: t.imageUrl || photo, dugaCheckedAt: new Date() })
+          .where(eq(actresses.id, t.id));
+        r.linked++;
+        if (!t.imageUrl && photo) r.photos++;
+      } else {
+        await db.update(actresses).set({ dugaCheckedAt: new Date() }).where(eq(actresses.id, t.id));
+        if (found.length > 1) r.ambiguous++;
+        else r.notFound++;
+      }
+      await new Promise((ok) => setTimeout(ok, 1100)); // 60秒に60回までの制限に収める
+    }
+  }
+  return { ...r, remaining: await countDue(due) };
 }

@@ -4,6 +4,7 @@ import type { Metadata } from "next";
 import { CalendarCheck, ExternalLink, Sparkles, Store, TrendingUp } from "lucide-react";
 import { getPublicActress } from "@/lib/queries";
 import { fetchActressItems } from "@/lib/dmm";
+import { fetchDugaWorks } from "@/lib/duga";
 import { WEEKDAY_LABELS, addDays, dateRange, hm, shortDate, todayJst } from "@/lib/dates";
 import { prefName } from "@/lib/prefectures";
 import { AttendanceGrid, Legend, PrBadge } from "@/components/public";
@@ -32,7 +33,10 @@ export default async function ActressDetailPage({ params }: PageProps<"/actresse
   const { actress, enrollments, schedules, links, insight } = data;
   const today = todayJst();
   const dates = dateRange(addDays(today, -7), 38);
-  const items = actress.dmmActressId ? await fetchActressItems(actress.dmmActressId) : [];
+  const [items, dugaItems] = await Promise.all([
+    actress.dmmActressId ? fetchActressItems(actress.dmmActressId) : Promise.resolve([]),
+    actress.dugaPerformerId ? fetchDugaWorks(actress.name, actress.dugaPerformerId) : Promise.resolve([]),
+  ]);
 
   const rows = enrollments.map((e) => ({
     key: e.enrollmentId,
@@ -169,6 +173,29 @@ export default async function ActressDetailPage({ params }: PageProps<"/actresse
             ))}
           </div>
           <p className="mt-2 text-xs text-muted">作品情報は DMM Web Service の提供です（Powered by FANZA Webサービス）。</p>
+        </section>
+      )}
+
+      {dugaItems.length > 0 && (
+        <section>
+          <h2 className="mb-3 flex items-center gap-2 text-lg font-bold">
+            {actress.name}の出演作品（DUGA） <PrBadge />
+          </h2>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            {dugaItems.map((it) => (
+              <a key={it.productId} href={it.affiliateUrl} target="_blank" rel="sponsored nofollow noopener" className="group overflow-hidden rounded-xl border border-line bg-surface hover:border-rose-500/40">
+                {(it.jacketUrl || it.posterUrl) && (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={it.jacketUrl || it.posterUrl} alt={it.title} className="aspect-[3/4] w-full object-cover" loading="lazy" />
+                )}
+                <div className="p-2">
+                  <div className="line-clamp-2 text-xs group-hover:text-accent">{it.title}</div>
+                  <div className="mt-1 text-[11px] text-muted">{it.releaseDate}</div>
+                </div>
+              </a>
+            ))}
+          </div>
+          <p className="mt-2 text-xs text-muted">作品情報は DUGA ウェブサービスの提供です（Powered by DUGA）。</p>
         </section>
       )}
     </div>

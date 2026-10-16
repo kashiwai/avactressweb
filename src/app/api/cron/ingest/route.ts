@@ -7,7 +7,7 @@ import { dataSources, ingestRuns } from "@/db/schema";
 import { todayJst } from "@/lib/dates";
 import { acquireLease, closeAbandonedRuns, drainQueue, enqueueDueSources, isQueuedKind, pruneQueue, releaseLease } from "@/lib/ingest/queue";
 import { runSource } from "@/lib/ingest/run";
-import { fillDmmPhotos } from "@/lib/dmm-fill";
+import { fillDmmPhotos, fillDugaPhotos } from "@/lib/dmm-fill";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
@@ -63,5 +63,6 @@ async function run() {
   const drained = await drainQueue(deadline);
   // 取り込みで時間が余ったら、DMM の公式画像で女優の写真を補う（APIキーが未設定なら何もしない）
   const photos = await fillDmmPhotos(deadline);
-  return Response.json({ ok: true, abandoned, othersRun, enqueued, ...drained, photos });
+  const duga = await fillDugaPhotos(deadline);
+  return Response.json({ ok: true, abandoned, othersRun, enqueued, ...drained, photos, duga });
 }

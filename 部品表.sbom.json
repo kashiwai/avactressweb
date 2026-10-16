@@ -1,0 +1,305 @@
+{
+ "bomFormat": "CycloneDX",
+ "specVersion": "1.5",
+ "version": 1,
+ "metadata": {
+  "timestamp": "2026-10-15T20:39:45Z",
+  "tools": [
+   {
+    "vendor": "SoloptiLink Inc.",
+    "name": "SoloptiLinkAI",
+    "version": "sbom-generate"
+   }
+  ],
+  "component": {
+   "type": "application",
+   "name": "site",
+   "version": "0.1.0"
+  },
+  "properties": [
+   {
+    "name": "soloptilink:disclosure_ja",
+    "value": "版を確定する記録(package-lock.json 等)が無いため、版は宣言された範囲のみです"
+   },
+   {
+    "name": "soloptilink:disclosure_ja",
+    "value": "版を確定できなかった部品が 21 件あります: @tailwindcss/postcss, @types/bcryptjs, @types/node, @types/react, @types/react-dom, bcryptjs, drizzle-kit, drizzle-orm, eslint, eslint-config-next"
+   }
+  ]
+ },
+ "components": [
+  {
+   "type": "library",
+   "name": "@tailwindcss/postcss",
+   "version": "",
+   "scope": "optional",
+   "purl": "pkg:npm/@tailwindcss/postcss",
+   "properties": [
+    {
+     "name": "declared_range",
+     "value": "^4"
+    }
+   ]
+  },
+  {
+   "type": "library",
+   "name": "@types/bcryptjs",
+   "version": "",
+   "scope": "optional",
+   "purl": "pkg:npm/@types/bcryptjs",
+   "properties": [
+    {
+     "name": "declared_range",
+     "value": "^3.0.0"
+    }
+   ]
+  },
+  {
+   "type": "library",
+   "name": "@types/node",
+   "version": "",
+   "scope": "optional",
+   "purl": "pkg:npm/@types/node",
+   "properties": [
+    {
+     "name": "declared_range",
+     "value": "^20"
+    }
+   ]
+  },
+  {
+   "type": "library",
+   "name": "@types/react",
+   "version": "",
+   "scope": "optional",
+   "purl": "pkg:npm/@types/react",
+   "properties": [
+    {
+     "name": "declared_range",
+     "value": "^19"
+    }
+   ]
+  },
+  {
+   "type": "library",
+   "name": "@types/react-dom",
+   "version": "",
+   "scope": "optional",
+   "purl": "pkg:npm/@types/react-dom",
+   "properties": [
+    {
+     "name": "declared_range",
+     "value": "^19"
+    }
+   ]
+  },
+  {
+   "type": "library",
+   "name": "bcryptjs",
+   "version": "",
+   "scope": "required",
+   "purl": "pkg:npm/bcryptjs",
+   "properties": [
+    {
+     "name": "declared_range",
+     "value": "^3.0.3"
+    }
+   ]
+  },
+  {
+   "type": "library",
+   "name": "drizzle-kit",
+   "version": "",
+   "scope": "optional",
+   "purl": "pkg:npm/drizzle-kit",
+   "properties": [
+    {
+     "name": "declared_range",
+     "value": "^0.31.11"
+    }
+   ]
+  },
+  {
+   "type": "library",
+   "name": "drizzle-orm",
+   "version": "",
+   "scope": "required",
+   "purl": "pkg:npm/drizzle-orm",
+   "properties": [
+    {
+     "name": "declared_range",
+     "value": "^0.45.3"
+    }
+   ]
+  },
+  {
+   "type": "library",
+   "name": "eslint",
+   "version": "",
+   "scope": "optional",
+   "purl": "pkg:npm/eslint",
+   "properties": [
+    {
+     "name": "declared_range",
+     "value": "^9"
+    }
+   ]
+  },
+  {
+   "type": "library",
+   "name": "eslint-config-next",
+   "version": "",
+   "scope": "optional",
+   "purl": "pkg:npm/eslint-config-next",
+   "properties": [
+    {
+     "name": "declared_range",
+     "value": "16.3.6"
+    }
+   ]
+  },
+  {
+   "type": "library",
+   "name": "lucide-react",
+   "version": "",
+   "scope": "required",
+   "purl": "pkg:npm/lucide-react",
+   "properties": [
+    {
+     "name": "declared_range",
+     "value": "^1.48.0"
+    }
+   ]
+  },
+  {
+   "type": "library",
+   "name": "next",
+   "version": "",
+   "scope": "required",
+   "purl": "pkg:npm/next",
+   "properties": [
+    {
+     "name": "declared_range",
+     "value": "16.3.6"
+    }
+   ]
+  },
+  {
+   "type": "library",
+   "name": "postgres",
+   "version": "",
+   "scope": "required",
+   "purl": "pkg:npm/postgres",
+   "properties": [
+    {
+     "name": "declared_range",
+     "value": "^3.4.9"
+    }
+   ]
+  },
+  {
+   "type": "library",
+   "name": "react",
+   "version": "",
+   "scope": "required",
+   "purl": "pkg:npm/react",
+   "properties": [
+    {
+     "name": "declared_range",
+     "value": "19.2.8"
+    }
+   ]
+  },
+  {
+   "type": "library",
+   "name": "react-dom",
+   "version": "",
+   "scope": "required",
+   "purl": "pkg:npm/react-dom",
+   "properties": [
+    {
+     "name": "declared_range",
+     "value": "19.2.8"
+    }
+   ]
+  },
+  {
+   "type": "library",
+   "name": "recharts",
+   "version": "",
+   "scope": "required",
+   "purl": "pkg:npm/recharts",
+   "properties": [
+    {
+     "name": "declared_range",
+     "value": "^3.10.1"
+    }
+   ]
+  },
+  {
+   "type": "library",
+   "name": "server-only",
+   "version": "",
+   "scope": "required",
+   "purl": "pkg:npm/server-only",
+   "properties": [
+    {
+     "name": "declared_range",
+     "value": "^0.0.1"
+    }
+   ]
+  },
+  {
+   "type": "library",
+   "name": "tailwindcss",
+   "version": "",
+   "scope": "optional",
+   "purl": "pkg:npm/tailwindcss",
+   "properties": [
+    {
+     "name": "declared_range",
+     "value": "^4"
+    }
+   ]
+  },
+  {
+   "type": "library",
+   "name": "tsx",
+   "version": "",
+   "scope": "optional",
+   "purl": "pkg:npm/tsx",
+   "properties": [
+    {
+     "name": "declared_range",
+     "value": "^4.23.15"
+    }
+   ]
+  },
+  {
+   "type": "library",
+   "name": "typescript",
+   "version": "",
+   "scope": "optional",
+   "purl": "pkg:npm/typescript",
+   "properties": [
+    {
+     "name": "declared_range",
+     "value": "^5"
+    }
+   ]
+  },
+  {
+   "type": "library",
+   "name": "zod",
+   "version": "",
+   "scope": "required",
+   "purl": "pkg:npm/zod",
+   "properties": [
+    {
+     "name": "declared_range",
+     "value": "^4.6.5"
+    }
+   ]
+  }
+ ]
+}

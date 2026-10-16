@@ -57,6 +57,9 @@ export const actresses = pgTable(
     dmmActressId: text("dmm_actress_id"),
     // DMM へ最後に問い合わせた日時（見つからなかった女優を毎回問い合わせ直さないため）
     dmmCheckedAt: timestamp("dmm_checked_at", { withTimezone: true }),
+    // DUGA の女優番号と、最後に問い合わせた日時
+    dugaPerformerId: text("duga_performer_id"),
+    dugaCheckedAt: timestamp("duga_checked_at", { withTimezone: true }),
     imageUrl: text("image_url").notNull().default(""),
     profile: text("profile").notNull().default(""),
     isPublished: boolean("is_published").notNull().default(true),
