@@ -64,6 +64,18 @@ async function countDue(due: ReturnType<typeof and>): Promise<number> {
 // ---- DUGA：女優番号の紐付けと、写真（その女優が1人で出ている作品の表紙）の補完 ----
 // 同じ名前で別人が複数いる場合は紐付けない。写真は、すでに入っている場合は上書きしない
 
+/** DUGA の女優の顔写真（160x160）。画像が無い女優は 404 が返るので、そのときは null */
+export async function dugaFaceUrl(performerId: string): Promise<string | null> {
+  if (!/^\d+$/.test(performerId)) return null;
+  const url = `https://img.duga.jp/img/actress/160x160/${performerId}.jpg`;
+  try {
+    const res = await fetch(url, { method: "HEAD", cache: "no-store", signal: AbortSignal.timeout(8000) });
+    return res.ok && (res.headers.get("content-type") ?? "").startsWith("image/") ? url : null;
+  } catch {
+    return null;
+  }
+}
+
 export type DugaFillResult = { checked: number; linked: number; photos: number; ambiguous: number; notFound: number; failed: number; remaining: number };
 
 export async function fillDugaPhotos(deadline: number): Promise<DugaFillResult> {
@@ -94,8 +106,10 @@ export async function fillDugaPhotos(deadline: number): Promise<DugaFillResult> 
       if (found.length === 1) {
         const pid = found[0].id;
         // その女優だけが出演している作品の表紙を写真にする（複数人の作品は別人が写るため使わない）
-        const solo = res.items.find((it) => it.performers.length === 1 && it.performers[0].id === pid && (it.jacketUrl || it.posterUrl));
-        const photo = solo ? solo.jacketUrl || solo.posterUrl : "";
+        // 写真は、DUGA の顔写真を優先し、無ければ1人出演作品の表紙にする
+        const face = t.imageUrl ? null : await dugaFaceUrl(pid);
+        const solo = face ? undefined : res.items.find((it) => it.performers.length === 1 && it.performers[0].id === pid && (it.jacketUrl || it.posterUrl));
+        const photo = face ?? (solo ? solo.jacketUrl || solo.posterUrl : "");
         await db
           .update(actresses)
           .set({ dugaPerformerId: pid, imageUrl: t.imageUrl || photo, dugaCheckedAt: new Date() })
