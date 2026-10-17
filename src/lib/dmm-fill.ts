@@ -1,11 +1,12 @@
 // DMM の女優検索で、女優の写真と DMM の女優IDを補う（自動実行・管理画面の両方から使う）
 // 名前が完全一致で1人に定まったときだけ入れる。同名が複数・見つからない女優は触らない
 import "server-only";
-import { and, asc, eq, isNull, lt, or, sql } from "drizzle-orm";
+import { and, asc, eq, isNotNull, isNull, lt, or, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { actresses } from "@/db/schema";
 import { dmmConfigured, searchDmmActress } from "@/lib/dmm";
 import { dugaConfigured, performersNamed, searchDuga } from "@/lib/duga";
+import { summarizeGenres } from "@/lib/genre-tags";
 
 /** 見つからなかった女優を問い合わせ直すまでの日数（DMM 側に後から登録されることがあるため） */
 const RECHECK_DAYS = 30;
@@ -110,9 +111,11 @@ export async function fillDugaPhotos(deadline: number): Promise<DugaFillResult> 
         const face = t.imageUrl ? null : await dugaFaceUrl(pid);
         const solo = face ? undefined : res.items.find((it) => it.performers.length === 1 && it.performers[0].id === pid && (it.jacketUrl || it.posterUrl));
         const photo = face ?? (solo ? solo.jacketUrl || solo.posterUrl : "");
+        // 同じ検索結果から、その女優の出演作品のジャンルも集める（追加の問い合わせはしない）
+        const genres = summarizeGenres(res.items.filter((it) => it.performers.some((p) => p.id === pid)).map((it) => it.categories));
         await db
           .update(actresses)
-          .set({ dugaPerformerId: pid, imageUrl: t.imageUrl || photo, dugaCheckedAt: new Date() })
+          .set({ dugaPerformerId: pid, imageUrl: t.imageUrl || photo, genres, dugaCheckedAt: new Date() })
           .where(eq(actresses.id, t.id));
         r.linked++;
         if (!t.imageUrl && photo) r.photos++;
@@ -122,6 +125,36 @@ export async function fillDugaPhotos(deadline: number): Promise<DugaFillResult> 
         else r.notFound++;
       }
       await new Promise((ok) => setTimeout(ok, 1100)); // 60秒に60回までの制限に収める
+    }
+  }
+  return { ...r, remaining: await countDue(due) };
+}
+
+/**
+ * DUGA と紐付き済みで、ジャンルがまだ無い女優のジャンルを集める（紐付けより前に入った女優の分）。
+ * ジャンルが1つも見つからなかった女優は「その他」を入れて、毎回問い合わせ直さないようにする
+ */
+export async function fillDugaGenres(deadline: number): Promise<{ checked: number; filled: number; remaining: number }> {
+  const r = { checked: 0, filled: 0, remaining: 0 };
+  if (!dugaConfigured()) return r;
+  const due = and(isNotNull(actresses.dugaPerformerId), sql`${actresses.genres} = '[]'::jsonb`);
+  while (Date.now() < deadline) {
+    const batch = await db
+      .select({ id: actresses.id, name: actresses.name, pid: actresses.dugaPerformerId })
+      .from(actresses)
+      .where(due)
+      .orderBy(asc(actresses.id))
+      .limit(20);
+    if (batch.length === 0) break;
+    for (const t of batch) {
+      if (Date.now() > deadline) break;
+      const res = await searchDuga(t.name, { hits: 50, sort: "favorite", cache: "none" });
+      r.checked++;
+      if (!res.ok) return { ...r, remaining: await countDue(due) };
+      const genres = summarizeGenres(res.items.filter((it) => it.performers.some((p) => p.id === t.pid)).map((it) => it.categories));
+      await db.update(actresses).set({ genres: genres.length ? genres : ["その他"] }).where(eq(actresses.id, t.id));
+      if (genres.length) r.filled++;
+      await new Promise((ok) => setTimeout(ok, 1100));
     }
   }
   return { ...r, remaining: await countDue(due) };

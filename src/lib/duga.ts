@@ -18,6 +18,7 @@ export type DugaItem = {
   posterUrl: string; // 横長の画像（大）
   releaseDate: string; // YYYY-MM-DD
   performers: DugaPerformer[];
+  categories: string[];
 };
 
 type ImgSet = Array<Record<string, string>> | undefined;
@@ -36,6 +37,7 @@ type RawItem = {
   posterimage?: ImgSet;
   releasedate?: string;
   performer?: Array<{ data?: { id?: string | number; name?: string; kana?: string } }>;
+  category?: Array<{ data?: { name?: string } }>;
 };
 
 function normalize(i: RawItem): DugaItem | null {
@@ -51,6 +53,7 @@ function normalize(i: RawItem): DugaItem | null {
       .map((p) => p.data)
       .filter((d): d is NonNullable<typeof d> => Boolean(d?.name))
       .map((d) => ({ id: String(d.id ?? ""), name: String(d.name), kana: String(d.kana ?? "") })),
+    categories: (i.category ?? []).map((c) => c.data?.name ?? "").filter(Boolean),
   };
 }
 

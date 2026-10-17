@@ -64,6 +64,13 @@
       "when": 1792115657911,
       "tag": "0008_actress_duga",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1792207071394,
+      "tag": "0009_actress_profile",
+      "breakpoints": true
     }
   ]
 }

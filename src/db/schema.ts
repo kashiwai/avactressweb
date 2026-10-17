@@ -60,6 +60,17 @@ export const actresses = pgTable(
     // DUGA の女優番号と、最後に問い合わせた日時
     dugaPerformerId: text("duga_performer_id"),
     dugaCheckedAt: timestamp("duga_checked_at", { withTimezone: true }),
+    // 「雰囲気が近い女優」を選ぶためのプロフィール（DUGA の公開プロフィールから。必要な分だけ持つ）
+    heightCm: integer("height_cm"),
+    bust: integer("bust"),
+    waist: integer("waist"),
+    hip: integer("hip"),
+    cup: text("cup"),
+    birthYear: integer("birth_year"),
+    birthplace: text("birthplace"),
+    debutYear: integer("debut_year"),
+    // 出演作品のジャンル（多い順）
+    genres: jsonb("genres").$type<string[]>().notNull().default([]),
     imageUrl: text("image_url").notNull().default(""),
     profile: text("profile").notNull().default(""),
     isPublished: boolean("is_published").notNull().default(true),

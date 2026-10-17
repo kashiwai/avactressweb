@@ -268,3 +268,62 @@ export async function listActressNamesForRemoval() {
     .where(and(eq(actresses.isPublished, true), eq(actresses.optedOut, false)))
     .orderBy(asc(actresses.kana));
 }
+
+// ---- 雰囲気が近い女優（ジャンル中心。顔写真は使わない） ----
+export type SimilarActress = {
+  id: number;
+  name: string;
+  imageUrl: string;
+  genres: string[];
+  myfansUrl: string | null;
+  workingToday: boolean;
+  score: number;
+};
+
+/** ジャンルの並び順で重みを付けた集合（上位ほど重い） */
+function weighted(genres: string[]): Map<string, number> {
+  return new Map(genres.filter((g) => g !== "その他").map((g, i) => [g, 1 / (1 + i * 0.5)]));
+}
+
+export async function getSimilarActresses(actressId: number, limit = 6): Promise<SimilarActress[]> {
+  const [me] = await db.select().from(actresses).where(eq(actresses.id, actressId)).limit(1);
+  if (!me) return [];
+  const mine = weighted(me.genres);
+  if (mine.size === 0) return [];
+  const today = todayJst();
+
+  const cands = await db
+    .select({
+      id: actresses.id,
+      name: actresses.name,
+      imageUrl: actresses.imageUrl,
+      genres: actresses.genres,
+      heightCm: actresses.heightCm,
+      birthYear: actresses.birthYear,
+      myfansUrl: sql<string | null>`(select l.url from ${affiliateLinks} l where l.actress_id = "actresses"."id" and l.provider = 'myfans' and l.enabled order by l.sort_order, l.id limit 1)`,
+      workingToday: sql<boolean>`exists (select 1 from ${schedules} s join ${enrollments} e on e.id = s.enrollment_id where e.actress_id = "actresses"."id" and e.status = 'active' and s.work_date = ${today} and s.status = 'working')`,
+    })
+    .from(actresses)
+    .where(and(eq(actresses.isPublished, true), eq(actresses.optedOut, false), sql`${actresses.genres} <> '[]'::jsonb`, sql`${actresses.id} <> ${actressId}`));
+
+  const mineTotal = [...mine.values()].reduce((a, b) => a + b, 0);
+  const scored = cands
+    .map((c) => {
+      const theirs = weighted(c.genres);
+      let shared = 0;
+      for (const [g, w] of mine) if (theirs.has(g)) shared += w + theirs.get(g)!;
+      const total = mineTotal + [...theirs.values()].reduce((a, b) => a + b, 0);
+      let score = total ? shared / total : 0;
+      if (score === 0) return null;
+      // プロフィールが両方にあるときだけ、少し加味する
+      if (me.heightCm && c.heightCm) score += 0.05 * Math.max(0, 1 - Math.abs(me.heightCm - c.heightCm) / 15);
+      if (me.birthYear && c.birthYear) score += 0.05 * Math.max(0, 1 - Math.abs(me.birthYear - c.birthYear) / 10);
+      // myfans で見られる女優を優先し、本日出勤も少し優先する
+      if (c.myfansUrl) score += 0.15;
+      if (c.workingToday) score += 0.05;
+      return { id: c.id, name: c.name, imageUrl: c.imageUrl, genres: c.genres, myfansUrl: c.myfansUrl, workingToday: Boolean(c.workingToday), score };
+    })
+    .filter((x): x is SimilarActress => x !== null && x.score >= 0.12)
+    .sort((a, b) => b.score - a.score);
+  return scored.slice(0, limit);
+}

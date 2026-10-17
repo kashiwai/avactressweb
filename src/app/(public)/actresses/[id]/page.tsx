@@ -2,7 +2,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { CalendarCheck, ExternalLink, Sparkles, Store, TrendingUp } from "lucide-react";
-import { getPublicActress } from "@/lib/queries";
+import { getPublicActress, getSimilarActresses } from "@/lib/queries";
+import { displayGenres } from "@/lib/genre-tags";
 import { fetchActressItems } from "@/lib/dmm";
 import { fetchDugaWorks } from "@/lib/duga";
 import { WEEKDAY_LABELS, addDays, dateRange, hm, shortDate, todayJst } from "@/lib/dates";
@@ -33,10 +34,12 @@ export default async function ActressDetailPage({ params }: PageProps<"/actresse
   const { actress, enrollments, schedules, links, insight } = data;
   const today = todayJst();
   const dates = dateRange(addDays(today, -7), 38);
-  const [items, dugaItems] = await Promise.all([
+  const [items, dugaItems, similar] = await Promise.all([
     actress.dmmActressId ? fetchActressItems(actress.dmmActressId) : Promise.resolve([]),
     actress.dugaPerformerId ? fetchDugaWorks(actress.name, actress.dugaPerformerId) : Promise.resolve([]),
+    getSimilarActresses(actress.id),
   ]);
+  const myGenres = displayGenres(actress.genres);
 
   const rows = enrollments.map((e) => ({
     key: e.enrollmentId,
@@ -68,6 +71,9 @@ export default async function ActressDetailPage({ params }: PageProps<"/actresse
           <div className="mt-2 flex flex-wrap gap-2">
             {todayRows.length > 0 ? <Badge tone="ok">本日出勤</Badge> : <Badge>本日の出勤予定なし</Badge>}
             <Badge tone="info">在籍 {enrollments.length}店</Badge>
+            {myGenres.map((g) => (
+              <Badge key={g}>{g}</Badge>
+            ))}
           </div>
           {actress.profile && <p className="mt-3 whitespace-pre-wrap text-sm leading-relaxed text-foreground/90">{actress.profile}</p>}
         </div>
@@ -173,6 +179,34 @@ export default async function ActressDetailPage({ params }: PageProps<"/actresse
             ))}
           </div>
           <p className="mt-2 text-xs text-muted">作品情報は DMM Web Service の提供です（Powered by FANZA Webサービス）。</p>
+        </section>
+      )}
+
+      {similar.length > 0 && (
+        <section>
+          <h2 className="mb-1 text-lg font-bold">{actress.name}と雰囲気が近い女優</h2>
+          <p className="mb-3 text-xs text-muted">出演作品のジャンルが近い女優です。myfans では無料で見られる投稿もあります。</p>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+            {similar.map((s) => (
+              <Card key={s.id} className="flex flex-col gap-2 p-3">
+                <Link href={`/actresses/${s.id}`} className="flex items-center gap-2 hover:text-accent">
+                  <Avatar name={s.name} src={s.imageUrl} size={48} />
+                  <span className="min-w-0">
+                    <span className="block truncate text-sm font-bold">{s.name}</span>
+                    <span className="block truncate text-[11px] text-muted">{displayGenres(s.genres, 2).join("・")}</span>
+                  </span>
+                </Link>
+                <div className="flex flex-wrap gap-1.5">
+                  {s.workingToday && <Badge tone="ok">本日出勤</Badge>}
+                  {s.myfansUrl && (
+                    <a href={s.myfansUrl} target="_blank" rel="sponsored nofollow noopener" className="inline-flex items-center gap-1 rounded-full border border-rose-500/40 bg-rose-50 px-2 py-0.5 text-xs font-medium text-rose-700 hover:bg-rose-100">
+                      myfans を見る <PrBadge />
+                    </a>
+                  )}
+                </div>
+              </Card>
+            ))}
+          </div>
         </section>
       )}
 

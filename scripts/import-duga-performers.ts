@@ -104,6 +104,33 @@ function performerIdOf(...urls: string[]): string | null {
   return null;
 }
 
+// ---- プロフィール列（ある場合だけ使う。血液型など、使わない項目は読まない） ----
+const col = (r: Row, re: RegExp) => {
+  const k = Object.keys(r).find((x) => re.test(x));
+  return k ? String(r[k] ?? "").trim() : "";
+};
+const yearOf = (v: string) => {
+  const m = v.match(/(19|20)\d{2}/);
+  return m ? Number(m[0]) : null;
+};
+function profileOf(r: Row) {
+  const h = Number(col(r, /^身長/).replace(/[^\d]/g, ""));
+  const size = col(r, /スリーサイズ/);
+  const b = size.match(/B\s*(\d{2,3})/i), w = size.match(/W\s*(\d{2,3})/i), hp = size.match(/H\s*(\d{2,3})/i);
+  const cup = size.match(/[(（]\s*([A-Z])\s*[)）]/i) ?? size.match(/([A-Z])\s*カップ/i);
+  const place = col(r, /出身/);
+  return {
+    heightCm: h >= 130 && h <= 200 ? h : null,
+    bust: b ? Number(b[1]) : null,
+    waist: w ? Number(w[1]) : null,
+    hip: hp ? Number(hp[1]) : null,
+    cup: cup ? cup[1].toUpperCase() : null,
+    birthYear: yearOf(col(r, /生年月日|誕生日/)),
+    birthplace: place && !/不明|非公開|^-$/.test(place) ? place.slice(0, 20) : null,
+    debutYear: yearOf(col(r, /デビュー日|デビュー年/)),
+  };
+}
+
 const norm = (s: string) =>
   s.normalize("NFKC").replace(/[(（][^)）]*[)）]/g, "").replace(/[\s　]/g, "").trim();
 
@@ -126,7 +153,11 @@ async function main() {
   const client = postgres(process.env.DATABASE_URL!, { max: 1, prepare: !/:6543\//.test(process.env.DATABASE_URL!) });
   const db = drizzle(client, { schema });
   const all = await db
-    .select({ id: actresses.id, name: actresses.name, kana: actresses.kana, imageUrl: actresses.imageUrl, dugaPerformerId: actresses.dugaPerformerId })
+    .select({
+      id: actresses.id, name: actresses.name, kana: actresses.kana, imageUrl: actresses.imageUrl, dugaPerformerId: actresses.dugaPerformerId,
+      heightCm: actresses.heightCm, bust: actresses.bust, waist: actresses.waist, hip: actresses.hip, cup: actresses.cup,
+      birthYear: actresses.birthYear, birthplace: actresses.birthplace, debutYear: actresses.debutYear,
+    })
     .from(actresses);
   const byPid = new Map(all.filter((a) => a.dugaPerformerId).map((a) => [a.dugaPerformerId!, a]));
   const byName = new Map<string, typeof all>();
@@ -135,7 +166,7 @@ async function main() {
     byName.set(k, [...(byName.get(k) ?? []), a]);
   }
 
-  const st = { rows: rows.length, byPid: 0, byName: 0, photoSet: 0, kept: 0, kanaSet: 0, ambiguous: 0, unmatched: 0, noImage: 0 };
+  const st = { rows: rows.length, byPid: 0, byName: 0, photoSet: 0, kept: 0, kanaSet: 0, profileSet: 0, ambiguous: 0, unmatched: 0, noImage: 0 };
   const done = new Set<number>(); // 複数ファイルに同じ女優がいても1回だけ処理する
   for (const r of rows) {
     const name = (r[cols.name] ?? "").trim();
@@ -159,8 +190,14 @@ async function main() {
     const replaceable = !target.imageUrl || /pic\.duga\.jp\/.*\/jacket/i.test(target.imageUrl);
     const setPhoto = replaceable ? { imageUrl: image } : {};
     const setPid = pid && !target.dugaPerformerId ? { dugaPerformerId: pid } : {};
-    if (!dryRun && Object.keys({ ...setKana, ...setPhoto, ...setPid }).length) {
-      await db.update(actresses).set({ ...setKana, ...setPhoto, ...setPid }).where(eq(actresses.id, target.id));
+    // プロフィールは、まだ空の項目だけ埋める
+    const prof = profileOf(r);
+    const setProf = Object.fromEntries(
+      Object.entries(prof).filter(([k, v]) => v != null && (target as Record<string, unknown>)[k] == null),
+    );
+    if (Object.keys(setProf).length) st.profileSet++;
+    if (!dryRun && Object.keys({ ...setKana, ...setPhoto, ...setPid, ...setProf }).length) {
+      await db.update(actresses).set({ ...setKana, ...setPhoto, ...setPid, ...setProf }).where(eq(actresses.id, target.id));
     }
     if (replaceable) st.photoSet++;
     else st.kept++;
