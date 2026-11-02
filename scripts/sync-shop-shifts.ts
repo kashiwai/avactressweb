@@ -16,6 +16,8 @@ const apply = process.argv.includes("--apply");
 const shopArg = process.argv.find((a) => a.startsWith("--shop="));
 const limitArg = process.argv.find((a) => a.startsWith("--limit="));
 const maxArg = process.argv.find((a) => a.startsWith("--max-minutes="));
+const shardArg = process.argv.find((a) => a.startsWith("--shard="));
+const [shardIndex, shardCount] = shardArg ? shardArg.split("=")[1].split("/").map(Number) : [0, 1];
 const onlyShop = shopArg ? Number(shopArg.split("=")[1]) : 0;
 const limit = limitArg ? Number(limitArg.split("=")[1]) : 0;
 const maxMinutes = maxArg ? Number(maxArg.split("=")[1]) : 0;
@@ -53,7 +55,7 @@ async function getHtml(url: string): Promise<string> {
   return res.text();
 }
 
-const shopsToSync = await db
+const allShops = await db
   .select({ id: shops.id, name: shops.name, officialUrl: shops.officialUrl })
   .from(shops)
   .where(
@@ -66,6 +68,7 @@ const shopsToSync = await db
   )
   .orderBy(asc(shops.id))
   .limit(limit > 0 ? limit : 100000);
+const shopsToSync = shardCount > 1 ? allShops.filter((_, i) => i % shardCount === shardIndex) : allShops;
 
 console.log(`対象店舗 ${shopsToSync.length}件（${apply ? "反映" : "確認のみ"}）`);
 let shopsDone = 0, girlsRead = 0, matched = 0, discovered = 0, schedulesWritten = 0, notFound = 0, errors = 0;
