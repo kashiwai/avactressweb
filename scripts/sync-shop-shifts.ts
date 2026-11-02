@@ -23,6 +23,30 @@ const deadline = maxMinutes > 0 ? Date.now() + maxMinutes * 60_000 : Number.POSI
 const today = todayJst();
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
+type DisplayIndex = { byShop: Map<string, number[]>; global: Map<string, number[]> };
+async function loadDisplayIndex(): Promise<DisplayIndex> {
+  const rows = await db
+    .select({ shopId: enrollments.shopId, actressId: enrollments.actressId, name: enrollments.shopDisplayName })
+    .from(enrollments)
+    .where(eq(enrollments.status, "active"));
+  const byShop = new Map<string, number[]>();
+  const global = new Map<string, number[]>();
+  const add = (m: Map<string, number[]>, key: string, id: number) => {
+    const list = m.get(key);
+    if (list) {
+      if (!list.includes(id)) list.push(id);
+    } else m.set(key, [id]);
+  };
+  for (const r of rows) {
+    const key = normalizePersonName(r.name);
+    if (key.length < 2) continue;
+    add(byShop, `${r.shopId}|${key}`, r.actressId);
+    add(global, key, r.actressId);
+  }
+  return { byShop, global };
+}
+const displayIndex = await loadDisplayIndex();
+
 async function getHtml(url: string): Promise<string> {
   const res = await fetch(url, { headers: { "User-Agent": USER_AGENT }, signal: AbortSignal.timeout(30000) });
   if (!res.ok) throw new Error(`${res.status} ${url}`);
@@ -44,7 +68,7 @@ const shopsToSync = await db
   .limit(limit > 0 ? limit : 100000);
 
 console.log(`対象店舗 ${shopsToSync.length}件（${apply ? "反映" : "確認のみ"}）`);
-let shopsDone = 0, girlsRead = 0, matched = 0, schedulesWritten = 0, notFound = 0, errors = 0;
+let shopsDone = 0, girlsRead = 0, matched = 0, discovered = 0, schedulesWritten = 0, notFound = 0, errors = 0;
 
 for (const shop of shopsToSync) {
   if (Date.now() > deadline) break;
@@ -67,13 +91,58 @@ for (const shop of shopsToSync) {
       .select({ id: enrollments.id, displayName: enrollments.shopDisplayName, actressId: enrollments.actressId })
       .from(enrollments)
       .where(and(eq(enrollments.shopId, shop.id), eq(enrollments.status, "active")));
+    const byName = new Map<string, typeof enr>();
     for (const e of enr) {
-      const g = girls.get(normalizePersonName(e.displayName));
-      if (!g) { notFound++; continue; }
-      matched++;
+      const key = normalizePersonName(e.displayName);
+      byName.set(key, [...(byName.get(key) ?? []), e]);
+    }
+
+    for (const [key, g] of girls) {
+      const existing = byName.get(key) ?? [];
+      let enrollmentId = existing.length === 1 ? existing[0].id : null;
+      if (!enrollmentId && existing.length === 0) {
+        // 他の取り込み元の「源氏名 → AV女優」対応から逆引きする
+        const byShop = displayIndex.byShop.get(`${shop.id}|${key}`) ?? [];
+        const ids = byShop.length ? byShop : displayIndex.global.get(key) ?? [];
+        if (ids.length === 1) {
+          const actressId = ids[0];
+          const [row] = await db
+            .insert(enrollments)
+            .values({
+              actressId,
+              shopId: shop.id,
+              shopDisplayName: g.displayName,
+              sourceUrl: g.girlUrl,
+              sourceNote: "シティヘブン店ページの源氏名から逆引き（自動）",
+              verifiedAt: today,
+            })
+            .onConflictDoNothing()
+            .returning({ id: enrollments.id });
+          enrollmentId = row?.id ?? null;
+          if (!enrollmentId) {
+            const [e] = await db
+              .select({ id: enrollments.id })
+              .from(enrollments)
+              .where(and(eq(enrollments.actressId, actressId), eq(enrollments.shopId, shop.id)))
+              .limit(1);
+            enrollmentId = e?.id ?? null;
+          }
+          if (enrollmentId) {
+            discovered++;
+            if (g.imageUrl) {
+              const [act] = await db.select({ sourceImageUrl: actresses.sourceImageUrl }).from(actresses).where(eq(actresses.id, actressId)).limit(1);
+              if (act && !act.sourceImageUrl) {
+                await db.update(actresses).set({ sourceImageUrl: g.imageUrl, updatedAt: new Date() }).where(eq(actresses.id, actressId));
+              }
+            }
+          }
+        }
+      }
+      if (!enrollmentId) { notFound++; continue; }
+      if (existing.length === 1) matched++;
       const rows = g.days
         .filter((d) => d.date >= today)
-        .map((d) => ({ enrollmentId: e.id, workDate: d.date, status: d.status, startTime: d.start, endTime: d.end, origin: "shop" as const }));
+        .map((d) => ({ enrollmentId: enrollmentId as number, workDate: d.date, status: d.status, startTime: d.start, endTime: d.end, origin: "shop" as const }));
       if (rows.length === 0) continue;
       if (apply) {
         await db
@@ -103,5 +172,5 @@ for (const shop of shopsToSync) {
   await sleep(800);
 }
 
-console.log({ shops: shopsToSync.length, shopsDone, girlsRead, matched, schedulesWritten, notFound, errors, apply });
+console.log({ shops: shopsToSync.length, shopsDone, girlsRead, matched, discovered, schedulesWritten, notFound, errors, apply });
 process.exit(0);

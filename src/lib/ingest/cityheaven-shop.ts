@@ -1,6 +1,6 @@
 // シティヘブンの店舗「出勤情報（週間スケジュール）」読み取り。通信は行わない純粋関数のみ
 // 店ページに、源氏名・日付・開始〜終了が表で載っている。源氏名で照合して出勤を反映する。
-import { htmlText, stripChrome } from "./html";
+import { htmlText, stripChrome, absoluteImageUrl } from "./html";
 import { normalizePersonName } from "./normalize";
 import { inferYmd } from "./avzoku";
 
@@ -14,6 +14,8 @@ export type ShopShiftDay = {
 export type ShopShiftGirl = {
   displayName: string;
   girlUrl: string;
+  /** 店ページの女の子写真（顔マッチング用。無ければ空） */
+  imageUrl: string;
   days: ShopShiftDay[];
 };
 
@@ -56,6 +58,7 @@ export function parseCityheavenWeekly(html: string, pageUrl: string, today: stri
     if (cells.length < dates.length) continue;
     // 先頭のセルは写真。写真セルが無い店もあるため、日付数に合わせて読む
     const shiftCells = cells.length >= dates.length + 1 ? cells.slice(1, 1 + dates.length) : cells.slice(0, dates.length);
+    const imgSrc = cells[0]?.match(/<img[^>]+(?:src|data-src)="([^"]+)"/i)?.[1] ?? "";
     const days: ShopShiftDay[] = dates.map((date, i) => {
       const cell = shiftCells[i] ?? "";
       const times = parseShiftTimes(htmlText(cell));
@@ -63,7 +66,9 @@ export function parseCityheavenWeekly(html: string, pageUrl: string, today: stri
       return { date, status: "off", start: null, end: null };
     });
     const key = normalizePersonName(currentName);
-    if (!out.has(key)) out.set(key, { displayName: currentName, girlUrl: currentUrl, days });
+    if (!out.has(key)) {
+      out.set(key, { displayName: currentName, girlUrl: currentUrl, imageUrl: absoluteImageUrl(imgSrc, pageUrl), days });
+    }
   }
   return [...out.values()];
 }
