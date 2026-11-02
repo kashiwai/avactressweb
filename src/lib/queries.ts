@@ -42,7 +42,7 @@ export async function getWorkingOn(date: string, opts: { prefCode?: number; q?: 
       actressId: actresses.id,
       actressName: actresses.name,
       actressKana: actresses.kana,
-      imageUrl: actresses.imageUrl,
+      imageUrl: sql<string>`coalesce(nullif(${actresses.imageUrl}, ''), ${actresses.sourceImageUrl})`,
       shopId: shops.id,
       shopName: shops.name,
       prefCode: shops.prefCode,
@@ -98,7 +98,7 @@ export async function getSiteStats() {
 /** 女優一覧（在籍中の店がある女優のみ） */
 export const PAGE_SIZE = 60;
 
-export async function listActresses(opts: { q?: string; prefCode?: number; page?: number } = {}) {
+export async function listActresses(opts: { q?: string; prefCode?: number; genre?: string; page?: number } = {}) {
   const today = todayJst();
   const conds = [visible];
   if (opts.q) {
@@ -106,12 +106,14 @@ export async function listActresses(opts: { q?: string; prefCode?: number; page?
     conds.push(or(ilike(actresses.name, like), ilike(actresses.kana, like))!);
   }
   if (opts.prefCode) conds.push(eq(shops.prefCode, opts.prefCode));
+  if (opts.genre) conds.push(eq(shops.genre, opts.genre));
   return db
     .select({
       id: actresses.id,
       name: actresses.name,
       kana: actresses.kana,
-      imageUrl: actresses.imageUrl,
+      imageUrl: sql<string>`coalesce(nullif(${actresses.imageUrl}, ''), ${actresses.sourceImageUrl})`,
+      genres: sql<string[]>`array_agg(distinct ${shops.genre})`,
       shopCount: sql<number>`count(distinct ${shops.id})::int`,
       shopNames: sql<string[]>`array_agg(distinct ${shops.name})`,
       prefCodes: sql<number[]>`array_agg(distinct ${shops.prefCode})`,
@@ -246,7 +248,7 @@ export async function getRecentEnrollments(limit = 6) {
     .select({
       actressId: actresses.id,
       actressName: actresses.name,
-      imageUrl: actresses.imageUrl,
+      imageUrl: sql<string>`coalesce(nullif(${actresses.imageUrl}, ''), ${actresses.sourceImageUrl})`,
       shopId: shops.id,
       shopName: shops.name,
       prefCode: shops.prefCode,
@@ -296,7 +298,7 @@ export async function getSimilarActresses(actressId: number, limit = 6): Promise
     .select({
       id: actresses.id,
       name: actresses.name,
-      imageUrl: actresses.imageUrl,
+      imageUrl: sql<string>`coalesce(nullif(${actresses.imageUrl}, ''), ${actresses.sourceImageUrl})`,
       genres: actresses.genres,
       heightCm: actresses.heightCm,
       birthYear: actresses.birthYear,

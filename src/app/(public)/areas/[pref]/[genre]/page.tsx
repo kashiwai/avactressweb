@@ -37,10 +37,10 @@ export default async function AreaGenrePage({ params, searchParams }: PageProps<
     <div className="space-y-6">
       <nav className="text-xs text-muted" aria-label="パンくず">
         <Link href="/" className="hover:text-foreground">トップ</Link> ／ <Link href="/areas" className="hover:text-foreground">地域から探す</Link> ／{" "}
-        <Link href={`/areas/${pref.slug}`} className="hover:text-foreground">{pref.name}</Link> ／ {genre.name}
+        <Link href={`/areas/${pref.slug}`} className="hover:text-foreground">{pref.name}</Link> ／ {genre.label}
       </nav>
       <PageHeader
-        title={`${pref.name}の${genre.name}に出勤するAV女優`}
+        title={`${pref.name}の${genre.label}に出勤するAV女優`}
         description={`${date === today ? "本日" : shortDate(date)}の出勤 ${new Set(rows.map((r) => r.actressId)).size}人／掲載店舗 ${shopList.length}店`}
       />
       <div className="flex gap-1 overflow-x-auto pb-1">
@@ -51,7 +51,7 @@ export default async function AreaGenrePage({ params, searchParams }: PageProps<
         ))}
       </div>
       {rows.length === 0 ? (
-        <EmptyState title={`${pref.name}の${genre.name}で出勤予定のAV女優はいません`} description="別の日付か業種をお選びください。" action={<Link href={`/areas/${pref.slug}`} className="text-sm text-accent underline">{pref.name}のすべての業種を見る</Link>} />
+        <EmptyState title={`${pref.name}の${genre.label}で出勤予定のAV女優はいません`} description="別の日付か業種をお選びください。" action={<Link href={`/areas/${pref.slug}`} className="text-sm text-accent underline">{pref.name}のすべての業種を見る</Link>} />
       ) : (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {rows.map((r) => <WorkingCard key={`${r.actressId}-${r.shopId}`} row={r} nowHm={nowTimeJst()} isToday={date === today} />)}
@@ -59,7 +59,7 @@ export default async function AreaGenrePage({ params, searchParams }: PageProps<
       )}
       {shopList.length > 0 && (
         <section>
-          <h2 className="mb-3 text-lg font-bold">{pref.name}の{genre.name}（掲載店舗）</h2>
+          <h2 className="mb-3 text-lg font-bold">{pref.name}の{genre.label}（掲載店舗）</h2>
           <div className="flex flex-wrap gap-2">
             {shopList.map(({ shop, workingToday }) => (
               <Link key={shop.id} href={`/shops/${shop.id}`} className="flex items-center gap-2 rounded-lg border border-line bg-surface px-3 py-2 text-sm hover:border-rose-500/40">

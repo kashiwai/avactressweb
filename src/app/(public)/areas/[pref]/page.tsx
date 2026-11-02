@@ -4,8 +4,8 @@ import type { Metadata } from "next";
 import { getWorkingOn, listPublicShops } from "@/lib/queries";
 import { dateRange, isYmd, nowTimeJst, shortDate, todayJst } from "@/lib/dates";
 import { prefBySlug } from "@/lib/prefectures";
-import { genreByName } from "@/lib/genres";
-import { WorkingCard } from "@/components/public";
+import { genreByName, GENRE_CHIP_CLASSES, genreColor } from "@/lib/genres";
+import { GenreBadge, WorkingCard } from "@/components/public";
 import { Badge, EmptyState, PageHeader, cn } from "@/components/ui";
 
 export const dynamic = "force-dynamic";
@@ -37,8 +37,8 @@ export default async function AreaPage({ params, searchParams }: PageProps<"/are
           {[...new Set(shopList.map(({ shop }) => shop.genre))].map((name) => {
             const g = genreByName(name);
             return g ? (
-              <Link key={g.slug} href={`/areas/${pref.slug}/${g.slug}`} className="rounded-full border border-line bg-surface px-3 py-1 text-sm text-muted hover:border-rose-500/40 hover:text-foreground">
-                {pref.name.replace(/[都府県]$/, "")}の{g.name}
+              <Link key={g.slug} href={`/areas/${pref.slug}/${g.slug}`} className={cn("rounded-full border px-3 py-1 text-sm font-medium", GENRE_CHIP_CLASSES[genreColor(g.name)])}>
+                {pref.name.replace(/[都府県]$/, "")}の{g.label}
               </Link>
             ) : null;
           })}
@@ -71,6 +71,7 @@ export default async function AreaPage({ params, searchParams }: PageProps<"/are
             {shopList.map(({ shop, workingToday }) => (
               <Link key={shop.id} href={`/shops/${shop.id}`} className="flex items-center gap-2 rounded-lg border border-line bg-surface px-3 py-2 text-sm hover:border-rose-500/40">
                 {shop.name}
+                <GenreBadge genre={shop.genre} />
                 {workingToday > 0 && <Badge tone="ok">{workingToday}人</Badge>}
               </Link>
             ))}

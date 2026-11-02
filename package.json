@@ -12,6 +12,12 @@
     "seed": "bun --env-file=.env.local scripts/seed.ts",
     "seed:demo": "bun --env-file=.env.local scripts/seed.ts --demo",
     "typecheck": "next typegen && tsc --noEmit",
+    "test:ingest": "bun test tests/ingest",
+    "check:ingest": "bun --env-file=.env.local scripts/check-ingest-pages.ts",
+    "clean:merge": "bun --env-file=.env.local --conditions=react-server scripts/clean-merge.ts",
+    "ingest:now": "bun --env-file=.env.local --conditions=react-server scripts/ingest-now.ts",
+    "photos:backfill": "bun --env-file=.env.local --conditions=react-server scripts/backfill-photos.ts",
+    "sync:shifts": "bun --env-file=.env.local --conditions=react-server scripts/sync-shop-shifts.ts",
     "audit": "npm audit --audit-level=high"
   },
   "dependencies": {

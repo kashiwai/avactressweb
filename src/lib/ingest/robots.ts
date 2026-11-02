@@ -44,19 +44,37 @@ export function isAllowedByRobots(robotsTxt: string, path: string, agentToken = 
 }
 
 /** robots.txt を取得して判定。取得できない（404等）場合は許可として扱う */
+const cache = new Map<string, { at: number; text: string | null; reason?: string }>();
+const TTL_MS = 6 * 60 * 60_000;
+
 export async function checkRobots(url: string): Promise<{ allowed: boolean; reason?: string }> {
   const u = new URL(url);
+  const path = u.pathname + u.search;
+  // 同じサイトを何千ページも読むため、robots.txt の中身は6時間使い回す（判定はURLごとに行う）
+  const hit = cache.get(u.origin);
+  if (hit && Date.now() - hit.at < TTL_MS) {
+    if (hit.text === null) return { allowed: false, reason: hit.reason ?? "robots.txt を確認できませんでした" };
+    return isAllowedByRobots(hit.text, path) ? { allowed: true } : { allowed: false, reason: "robots.txt で取得が禁止されています" };
+  }
   try {
     const res = await fetch(`${u.origin}/robots.txt`, {
       headers: { "User-Agent": USER_AGENT },
       cache: "no-store",
       signal: AbortSignal.timeout(8000),
     });
-    if (res.status >= 400 && res.status < 500) return { allowed: true };
-    if (!res.ok) return { allowed: false, reason: `robots.txt の取得に失敗しました（${res.status}）` };
+    // 404 など（robots.txt が無い）サイトはすべて許可
+    if (res.status >= 400 && res.status < 500) {
+      cache.set(u.origin, { at: Date.now(), text: "" });
+      return { allowed: true };
+    }
+    if (!res.ok) {
+      const reason = `robots.txt の取得に失敗しました（${res.status}）`;
+      cache.set(u.origin, { at: Date.now(), text: null, reason });
+      return { allowed: false, reason };
+    }
     const text = await res.text();
-    const ok = isAllowedByRobots(text, u.pathname + u.search);
-    return ok ? { allowed: true } : { allowed: false, reason: "robots.txt で取得が禁止されています" };
+    cache.set(u.origin, { at: Date.now(), text });
+    return isAllowedByRobots(text, path) ? { allowed: true } : { allowed: false, reason: "robots.txt で取得が禁止されています" };
   } catch {
     return { allowed: false, reason: "robots.txt を確認できませんでした（接続エラー）" };
   }

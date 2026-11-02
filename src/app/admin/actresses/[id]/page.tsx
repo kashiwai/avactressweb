@@ -40,7 +40,7 @@ export default async function AdminActressDetail({ params }: PageProps<"/admin/a
       />
 
       <Card className="flex flex-col gap-4 p-5 sm:flex-row">
-        <Avatar name={a.name} src={a.imageUrl} size={96} />
+        <Avatar name={a.name} src={a.imageUrl || a.sourceImageUrl} size={96} />
         <div className="flex-1 space-y-2 text-sm">
           <div className="flex flex-wrap gap-2">
             {a.optedOut ? <Badge tone="warn">掲載停止中</Badge> : a.isPublished ? <Badge tone="ok">公開</Badge> : <Badge>非公開</Badge>}

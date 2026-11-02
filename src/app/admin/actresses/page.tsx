@@ -57,7 +57,7 @@ export default async function AdminActressesPage({ searchParams }: PageProps<"/a
               <tr key={a.id} className="hover:bg-surface-2/50">
                 <Td>
                   <Link prefetch={false} href={`/admin/actresses/${a.id}`} className="flex items-center gap-2 font-medium text-accent hover:underline">
-                    <Avatar name={a.name} src={a.imageUrl} size={32} />
+                    <Avatar name={a.name} src={a.imageUrl || a.sourceImageUrl} size={32} />
                     <span>{a.name}<span className="block text-xs font-normal text-muted">{a.kana}</span></span>
                   </Link>
                 </Td>

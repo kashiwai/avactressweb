@@ -1,27 +1,19 @@
 // まとめサイト型の取り込みを「待ち行列」で少しずつ処理する。
 // 1回の実行時間（Vercel の上限 300 秒）に収まるよう締め切りを決め、残りは次の実行で続きから処理する。
-//   1) 一覧ページから女優ページのURLを集めて待ち行列へ入れる（取り込み元ごとに1日1回）
-//   2) 待ち行列の女優ページを1秒間隔で読み、在籍・出勤へ反映する（締め切りまで）
+//   1) 一覧ページから女優・店舗ページのURLを集めて待ち行列へ入れる（取り込み元ごとに1〜3日に1回）
+//   2) 待ち行列のページを1秒間隔で読み、在籍・出勤へ反映する（締め切りまで）
 import "server-only";
-import { and, asc, eq, gte, inArray, isNull, lt, notInArray, sql } from "drizzle-orm";
+import { and, asc, eq, gte, isNull, lt, sql } from "drizzle-orm";
 import { db } from "@/db";
-import { actresses, dataSources, enrollments, ingestQueue, ingestRuns, jobLeases, shops, type DataSource } from "@/db/schema";
+import { dataSources, ingestQueue, ingestRuns, jobLeases, type DataSource } from "@/db/schema";
 import { addDays, todayJst } from "../dates";
-import { applyAggregatedActress } from "./aggregator";
-import { parseAvzokuActress, parseAvzokuList } from "./avzoku";
-import { parseAvfuzokuActress, parseAvfuzokuIndex } from "./avfuzoku";
+import { applyQueuedUrl, collectSourceUrls, INTERVAL_DAYS, isQueuedKind, type QueuedKind } from "./sources";
 import { USER_AGENT, checkRobots } from "./robots";
 
-const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 const MAX_ATTEMPTS = 3;
 
-/** 待ち行列で処理する取り込み元の種類 */
-export const QUEUED_KINDS = ["avzoku", "avfuzoku"] as const;
-type QueuedKind = (typeof QUEUED_KINDS)[number];
-export const isQueuedKind = (k: string): k is QueuedKind => (QUEUED_KINDS as readonly string[]).includes(k);
-
-/** 一覧を読み直す間隔（日）。出勤情報は毎日、在籍情報だけのサイトは3日ごと（相手のサイトへの負担を抑える） */
-const INTERVAL_DAYS: Record<QueuedKind, number> = { avzoku: 1, avfuzoku: 3 };
+export { QUEUED_KINDS, isQueuedKind } from "./sources";
 
 async function getHtml(url: string): Promise<string> {
   const robots = await checkRobots(url);
@@ -41,21 +33,16 @@ export async function enqueueSource(source: DataSource, opts: { force?: boolean;
   const today = todayJst();
   const [run] = await db.insert(ingestRuns).values({ sourceId: source.id }).returning({ id: ingestRuns.id });
   try {
-    const urls = new Set<string>();
-    if (source.kind === "avfuzoku") {
-      parseAvfuzokuIndex(await getHtml(source.url)).forEach((u) => urls.add(u));
-    } else {
-      let url: string | null = source.url;
-      for (let page = 0; url && page < Math.max(1, source.maxPages); page++) {
-        if (opts.deadline && Date.now() > opts.deadline) break;
-        const list = parseAvzokuList(await getHtml(url));
-        list.actressUrls.forEach((u) => urls.add(u));
-        url = list.nextUrl;
-        await sleep(1000);
-      }
-    }
-    if (urls.size === 0) throw new Error("一覧ページから女優を1人も読み取れませんでした。ページの作りが変わった可能性があります");
+    if (!isQueuedKind(source.kind)) throw new Error(`この形式は待ち行列の対象ではありません（${source.kind}）`);
+    const list = await collectSourceUrls(source.kind, source.url, {
+      getHtml,
+      sleep,
+      maxPages: Math.max(1, source.maxPages),
+      deadline: opts.deadline,
+    });
+    if (list.length === 0) throw new Error("一覧ページから女優を1人も読み取れませんでした。ページの作りが変わった可能性があります");
 
+    const urls = new Set(list);
     const rows = [...urls].map((u) => ({ sourceId: source.id, runId: run.id, runDate: today, url: u }));
     if (opts.force) {
       await db
@@ -115,6 +102,13 @@ export async function enqueueDueSources(deadline: number): Promise<number> {
   for (const s of sources) {
     if (!isQueuedKind(s.kind)) continue;
     if (Date.now() > deadline) break;
+    // 前回の待ち行列が残っている間は、同じページを二重に入れない（片付いてから次の一覧を読む）
+    const [pending] = await db
+      .select({ id: ingestQueue.id })
+      .from(ingestQueue)
+      .where(and(eq(ingestQueue.sourceId, s.id), eq(ingestQueue.status, "pending"), gte(ingestQueue.runDate, addDays(today, -3))))
+      .limit(1);
+    if (pending) continue;
     const since = jstMidnight(addDays(today, -(INTERVAL_DAYS[s.kind] - 1)));
     const [already] = await db
       .select({ id: ingestRuns.id })
@@ -151,18 +145,9 @@ export async function drainQueue(deadline: number): Promise<{ processed: number;
     for (const { item, kind } of batch) {
       if (Date.now() > deadline) break;
       try {
-        let r = { applied: 0, createdActress: false, createdShop: false };
-        let note: string | null = null;
-        if (kind === "avfuzoku") {
-          const x = await applyAvfuzokuPage(await getHtml(item.url), item.url, today);
-          r = x.result;
-          note = x.note;
-        } else {
-          const a = parseAvzokuActress(await getHtml(item.url), item.url, today);
-          if (!a) note = `読み取れませんでした：${item.url}`;
-          else if (!a.prefCode) note = `${a.name}（都道府県不明）`;
-          else r = await applyAggregatedActress(a, today);
-        }
+        const x = await applyQueuedUrl(kind as QueuedKind, item.url, getHtml, today);
+        const r = { applied: x.applied, createdActress: x.createdActress, createdShop: x.createdShop };
+        const note = x.note;
 
         await db.update(ingestQueue).set({ status: "done", attempts: item.attempts + 1, lastError: note, updatedAt: new Date() }).where(eq(ingestQueue.id, item.id));
         if (item.runId) {
@@ -226,65 +211,6 @@ async function closeFinishedRuns(): Promise<void> {
 /** 古い待ち行列を片付ける（7日より前） */
 export async function pruneQueue(): Promise<void> {
   await db.delete(ingestQueue).where(lt(ingestQueue.runDate, addDays(todayJst(), -7)));
-}
-
-/** 店名だけで都道府県が1つに決まる既存店舗があれば、その都道府県を使う */
-async function prefOfKnownShop(shopName: string): Promise<number | null> {
-  const rows = await db.selectDistinct({ pref: shops.prefCode }).from(shops).where(eq(shops.name, shopName)).limit(2);
-  return rows.length === 1 ? rows[0].pref : null;
-}
-
-/**
- * avfuzoku の女優ページ1件を在籍へ反映する（出勤は扱わない）。
- * ページに載っている店は在籍中に、「退店しました」と書かれた店・ページから消えた店は退店にする。
- */
-async function applyAvfuzokuPage(html: string, url: string, today: string): Promise<{ result: { applied: number; createdActress: boolean; createdShop: boolean }; note: string | null }> {
-  const a = parseAvfuzokuActress(html, url);
-  const result = { applied: 0, createdActress: false, createdShop: false };
-  if (!a) return { result, note: `読み取れませんでした：${url}` };
-  const unknown: string[] = [];
-  const keptShopIds: number[] = [];
-  for (const e of a.entries) {
-    const prefCode = e.prefCode ?? (await prefOfKnownShop(e.shopName));
-    if (!prefCode) {
-      unknown.push(`${e.shopName}(${e.area})`);
-      continue;
-    }
-    const r = await applyAggregatedActress(
-      { url, name: a.name, kana: a.kana, prefCode, area: e.area, genre: e.genre, shopName: e.shopName, shopUrl: e.shopUrl, displayName: e.displayName || a.name, verifiedAt: today, schedules: [] },
-      today,
-    );
-    if (r.createdActress) result.createdActress = true;
-    if (r.createdShop) result.createdShop = true;
-    result.applied++;
-    const [shop] = await db.select({ id: shops.id }).from(shops).where(and(eq(shops.name, e.shopName), eq(shops.prefCode, prefCode))).limit(1);
-    if (shop) keptShopIds.push(shop.id);
-  }
-  // このページを根拠に作った在籍のうち、今回載っていなかった店は退店にする
-  const [act] = await db.select({ id: actresses.id }).from(actresses).where(eq(actresses.name, a.name)).limit(1);
-  if (act) {
-    await db
-      .update(enrollments)
-      .set({ status: "left", updatedAt: new Date() })
-      .where(
-        and(
-          eq(enrollments.actressId, act.id),
-          eq(enrollments.sourceUrl, url),
-          eq(enrollments.status, "active"),
-          keptShopIds.length ? notInArray(enrollments.shopId, keptShopIds) : sql`true`,
-        ),
-      );
-    if (a.leftShops.length) {
-      const leftIds = (await db.select({ id: shops.id }).from(shops).where(inArray(shops.name, a.leftShops))).map((x) => x.id);
-      if (leftIds.length) {
-        await db
-          .update(enrollments)
-          .set({ status: "left", updatedAt: new Date() })
-          .where(and(eq(enrollments.actressId, act.id), inArray(enrollments.shopId, leftIds), eq(enrollments.sourceUrl, url)));
-      }
-    }
-  }
-  return { result, note: unknown.length ? `${a.name}：都道府県不明の店 ${unknown.join("、")}` : null };
 }
 
 /**

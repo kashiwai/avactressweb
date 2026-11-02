@@ -2,6 +2,8 @@
 import Link from "next/link";
 import type { ComponentProps, ReactNode } from "react";
 import { Inbox, type LucideIcon } from "lucide-react";
+import { AvatarFallback, AvatarImage } from "./avatar-image";
+import { avatarFallbackUrl, avatarImageUrl } from "@/lib/images";
 
 export function cn(...xs: Array<string | false | null | undefined>): string {
   return xs.filter(Boolean).join(" ");
@@ -185,18 +187,25 @@ export function Td({ children, className }: { children?: ReactNode; className?: 
 
 /** 女優の画像。未設定なら頭文字を出す */
 export function Avatar({ name, src, size = 56 }: { name: string; src?: string | null; size?: number }) {
-  if (src) {
-    // 外部画像（DMM等）のため next/image は使わない
-    // eslint-disable-next-line @next/next/no-img-element
-    return <img src={src} alt={name} width={size} height={size} className="shrink-0 rounded-lg object-cover" style={{ width: size, height: size }} loading="lazy" />;
-  }
+  const url = avatarImageUrl(src);
+  const fallback = avatarFallbackUrl(src);
   return (
-    <div
-      className="flex shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-rose-100 to-pink-50 font-bold text-rose-700"
-      style={{ width: size, height: size, fontSize: size / 2.6 }}
-      aria-hidden
+    <span
+      className="relative inline-block shrink-0 overflow-hidden rounded-lg bg-gradient-to-br from-rose-100 to-pink-50 align-middle ring-1 ring-black/5"
+      style={{ width: size, height: size }}
     >
-      {name.slice(0, 1)}
-    </div>
+      {url ? (
+        <AvatarImage
+          key={url}
+          name={name}
+          src={url}
+          fallbackSrc={fallback}
+          size={size}
+          position={fallback || /adultinfojpn\.com/.test(url) ? "center" : "top"}
+        />
+      ) : (
+        <AvatarFallback name={name} size={size} />
+      )}
+    </span>
   );
 }

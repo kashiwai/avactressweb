@@ -53,6 +53,8 @@ export type CityheavenGirl = {
   displayName: string;
   /** 女の子ページのURL（在籍の根拠として記録する） */
   girlUrl: string;
+  /** 女の子の写真（DUGA/DMMに無いときの表示用） */
+  imageUrl: string;
   shopName: string;
   shopUrl: string;
   genre: string;
@@ -84,11 +86,15 @@ function parseCard(card: string, fallbackPref: number): CityheavenGirl | null {
   const bizArea = card.match(/<p class="shopbiz_area">([^<]*)<\/p>/);
   const [rawGenre = "", area = ""] = bizArea ? text(bizArea[1]).split("/") : [];
   const age = card.match(/<span>\[(\d+)歳\]<\/span>/);
+  const img = card.match(/data-echo="([^"]+)"/) ?? card.match(/<img[^>]+(?:src|data-src)="([^"]+)"/);
+  const imageRaw = img?.[1] ?? "";
+  const imageUrl = imageRaw.startsWith("//") ? `https:${imageRaw}` : imageRaw.replace(/^http:\/\//, "https://");
 
   return {
     girlId,
     displayName,
     girlUrl: CITYHEAVEN_ORIGIN + path,
+    imageUrl,
     shopName: shop ? text(shop[2]) : "",
     shopUrl: shop ? CITYHEAVEN_ORIGIN + decode(shop[1]) : "",
     genre: normalizeGenre(rawGenre),

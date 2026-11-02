@@ -7,6 +7,7 @@ import { formatDateTimeJst } from "@/lib/dates";
 import { Badge, Card, EmptyState, LinkButton, PageHeader, Table, Td, Th } from "@/components/ui";
 import { SubmitButton } from "@/components/client";
 import { registerRecommendedSources } from "@/lib/actions/admin";
+import { isQueuedKind } from "@/lib/ingest/queue";
 import { RECOMMENDED_SOURCES } from "@/lib/ingest/recommended";
 
 export const dynamic = "force-dynamic";
@@ -15,7 +16,7 @@ export default async function AdminSourcesPage() {
   const rows = await db.select({ d: dataSources, s: shops }).from(dataSources).leftJoin(shops, eq(shops.id, dataSources.shopId)).orderBy(asc(dataSources.name));
   return (
     <div className="space-y-4">
-      <PageHeader title="取り込み元" description="有効かつ規約確認済みの取り込み元から、10分ごとの自動実行で出勤・在籍を取り込みます（出勤は毎日、在籍情報は3日ごとに一覧を読み直します）。" actions={<LinkButton href="/admin/sources/new"><Plus className="size-4" aria-hidden />新規作成</LinkButton>} />
+      <PageHeader title="取り込み元" description="有効かつ規約確認済みの取り込み元から、10分ごとの自動実行で出勤・在籍を取り込みます（毎日、一覧を読み直します）。" actions={<LinkButton href="/admin/sources/new"><Plus className="size-4" aria-hidden />新規作成</LinkButton>} />
       {(() => {
         const missing = RECOMMENDED_SOURCES.filter((r) => !rows.some(({ d }) => d.url === r.url));
         const pagesOff = RECOMMENDED_SOURCES.filter((r) => rows.some(({ d }) => d.url === r.url && d.maxPages !== r.maxPages));
@@ -44,7 +45,7 @@ export default async function AdminSourcesPage() {
             {rows.map(({ d, s }) => (
               <tr key={d.id} className="hover:bg-surface-2/50">
                 <Td><Link prefetch={false} href={`/admin/sources/${d.id}`} className="font-medium text-accent hover:underline">{d.name}</Link></Td>
-                <Td>{s?.name ?? (d.kind === "avzoku" || d.kind === "avfuzoku" ? "複数（ページから自動判定）" : "—")}</Td>
+                <Td>{s?.name ?? (isQueuedKind(d.kind) ? "複数（ページから自動判定）" : "—")}</Td>
                 <Td>{d.enabled ? <Badge tone="ok">有効</Badge> : <Badge>停止中</Badge>} {!d.termsConfirmed && <Badge tone="warn">規約未確認</Badge>}</Td>
                 <Td>{formatDateTimeJst(d.lastRunAt)}</Td>
                 <Td className="max-w-xs truncate text-xs">{d.lastStatus ?? "—"}</Td>

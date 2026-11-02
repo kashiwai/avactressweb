@@ -1,0 +1,1 @@
+ALTER TABLE "actresses" ADD COLUMN "source_image_url" text DEFAULT '' NOT NULL;

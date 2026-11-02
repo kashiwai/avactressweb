@@ -5,7 +5,7 @@ import { Clock, ExternalLink, Phone, UserRound } from "lucide-react";
 import { getPublicShop } from "@/lib/queries";
 import { dateRange, nowTimeJst, todayJst } from "@/lib/dates";
 import { prefByCode, prefName } from "@/lib/prefectures";
-import { AttendanceGrid, Legend } from "@/components/public";
+import { AttendanceGrid, Legend, GenreBadge } from "@/components/public";
 import { Avatar, Badge, Card } from "@/components/ui";
 import { isWithinShift, hm } from "@/lib/dates";
 
@@ -53,9 +53,9 @@ export default async function ShopDetailPage({ params }: PageProps<"/shops/[id]"
 
       <Card className="p-5">
         <h1 className="text-2xl font-bold">{shop.name}</h1>
-        <p className="mt-1 text-sm text-muted">
-          {prefName(shop.prefCode)} {shop.area}
-          {shop.genre && `／${shop.genre}`}
+        <p className="mt-1 flex flex-wrap items-center gap-2 text-sm text-muted">
+          <span>{prefName(shop.prefCode)} {shop.area}</span>
+          <GenreBadge genre={shop.genre} />
         </p>
         <div className="mt-3 flex flex-wrap gap-x-5 gap-y-2 text-sm">
           {shop.businessHours && <span className="flex items-center gap-1"><Clock className="size-4 text-muted" aria-hidden />{shop.businessHours}</span>}

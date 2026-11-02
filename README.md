@@ -43,12 +43,87 @@ seed で自動生成したパスワードは `.dev-credentials.txt`（Git管理�
 |---|---|
 | JSONフィード | お店から提供される出勤データ（形式は管理画面に記載） |
 | avzoku | 運営者の許可を得た avzoku.com の地域別出勤一覧（例 `https://avzoku.com/schedule/tokyo-deliveryhealth/`）。女優・店舗・在籍・出勤を自動で作成／更新 |
+| avfuzoku | avfuzoku-soap-deli.com の女優ページ（`https://www.avfuzoku-soap-deli.com/sitemap.html`）。在籍・退店を自動で反映 |
+| adultinfo | adultinfojpn.com の「AV女優の風俗在籍まとめ」（`https://adultinfojpn.com/avfuzoku/`）。女優ページの在籍店情報・過去の在籍を反映 |
+| fuuav | FuuAV の在籍・退店まとめ（`https://fuuav.com/allposts/`）。全記事を巡回し、店名（地域・業種）と源氏名を反映 |
+| koukyuderi | コウデリの「AV女優在籍風俗店情報」（`https://www.koukyuderi.jp/special/avjoyu.html`）。表の女優名・源氏名・店名・地域・電話番号を反映 |
+| avfuuzoku | AV女優風俗在籍情報更新.com の詳細ページ（`https://avfuuzoku.com/genre_search.php`）。店名・業種・エリア・電話番号・退店を反映 |
 
 - 取得前に毎回 robots.txt を確認し、1秒に1件の間隔で取得します。
 - 取り込み元サイトの画像は複製しません。
 - 運営者・お店が手で入れた出勤は、自動取り込みで上書きしません。
 - 掲載停止にした女優は、取り込み直しても停止のままです。**本人・事務所からの削除依頼には「削除」ではなく「掲載停止」を使ってください**（削除すると次回の取り込みで復活します）。
 - 取り込み元から得た許可は、メール等の文面で保管してください。
+
+### 女優名・店名のマージ（名寄せ）
+
+取り込み元ごとに表記が違うため、次の順で既存データに寄せます（新しく作る前に必ず照合します）。
+
+- 女優：全角/半角・空白・カタカナ/ひらがなをそろえた名前 → 括弧内の別名 → よみがな、の順で探します。別名は `actresses.aliases` に残します。表記ゆれだけの重複は1人に統合し、在籍・出勤は残します。
+- 店舗：電話番号 → 都道府県＋店名（表記ゆれをそろえたもの） → 全国で1つに定まる店名、の順で探します。同じ都道府県で表記ゆれだけの店舗は1店に統合します。
+- 迷うもの（同じ名前が複数・都道府県が分からない店）は新しく作らず、未照合として実行履歴に残します。
+- 「FC2-PPV-123456」のような品番だけの女優名は、女優として作りません。
+
+既存データの整理は次のコマンドで確認できます（`--apply` で反映）。
+
+```bash
+bun --env-file=.env.local --conditions=react-server scripts/clean-merge.ts          # 確認のみ
+bun --env-file=.env.local --conditions=react-server scripts/clean-merge.ts --apply  # 統合・非公開化を反映
+```
+
+### 女優の画像を全員分そろえる
+
+DUGAの女優一覧（名前・よみがな・女優ID・顔写真）を全件読み、名前・別名・よみがなで照合して顔写真を入れます。
+一覧に無い人はDUGA検索APIで照合し、それでも無い人は取り込み元ページの女優画像を表示用（`actresses.source_image_url`）に保存します。
+
+```bash
+# 確認のみ（書き込みなし）
+bun run photos:backfill
+# 反映（全員分。DUGA一覧の読み込み + API照合 + 取り込み元画像）
+bun run photos:backfill --apply
+# 対象を絞る / APIを省略する / 取り込み元画像を省略する
+bun run photos:backfill --apply --limit=200
+bun run photos:backfill --apply --skip-api
+bun run photos:backfill --apply --skip-source
+```
+
+- 表示は `imageUrl`（DUGA/DMMの写真）→ `sourceImageUrl`（取り込み元の画像）→ 頭文字の順です。
+- DUGAに作品表紙しか無い女優は、顔写真があれば自動で置き換えます（30日に1回確認）。
+- 取り込み元の画像は複製せず、URLを保存して表示します。
+- `DMM_API_ID` / `DMM_AFFILIATE_ID` を設定すると、DUGAに居ない女優もDMM女優検索で補完します（無料のアフィリエイトAPI）。
+
+### 毎日の自動更新
+
+店ページの週間シフト（源氏名で照合）を毎日反映するには、次のいずれかを使います。
+
+**macOSのlaunchd（このMacで動かす場合）**
+
+```bash
+cp scripts/launchd/com.adlutweb.daily.plist ~/Library/LaunchAgents/
+launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.adlutweb.daily.plist
+```
+
+- 毎日 03:00 に `scripts/daily-update.sh` が動きます（ingest → 店シフト → 画像不足分 → 重複整理）。
+- ログ：`/tmp/adlutweb-daily.out.log` / `/tmp/adlutweb-daily.err.log`
+- 止める：`launchctl bootout gui/$(id -u) ~/Library/LaunchAgents/com.adlutweb.daily.plist`
+
+**GitHub Actions（PCを起動していなくても動かす場合）**
+
+1. GitHubの `Settings → Secrets and variables → Actions` に `DATABASE_URL`（本番SupabaseのSession URL）を登録
+2. `.github/workflows/daily-ingest.yml` と `daily-shifts.yml` を push
+3. `daily-ingest` は毎日03:00 JST、`daily-shifts` は毎日09:00 JSTに実行
+
+**手動で同じ処理をする場合**
+
+```bash
+bun run ingest:now                 # 全取り込み元（一覧取得＋待ち行列）
+bun run sync:shifts --apply        # 店ページの週間シフト
+bun run photos:backfill --apply --missing-only --skip-api  # 足りない画像
+bun run clean:merge --apply        # 重複整理
+```
+
+大量のページがあるため、ingest は数時間かかることがあります。途中で終了しても、残りは次回のcronが続きから処理します。
+
 
 ## DMM（FANZA）アフィリエイト
 

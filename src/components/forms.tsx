@@ -130,6 +130,10 @@ export function SourceFields({ source, shopOptions }: { source?: DataSource; sho
           { value: "json_feed", label: "JSONフィード（店舗提供）" },
           { value: "avzoku", label: "avzoku（許可済みまとめサイト）" },
           { value: "avfuzoku", label: "avfuzoku-soap-deli（許可済み・在籍情報のみ）" },
+          { value: "adultinfo", label: "adultinfojpn（許可済み・女優ページ）" },
+          { value: "fuuav", label: "FuuAV（許可済み・在籍/退店まとめ）" },
+          { value: "koukyuderi", label: "コウデリ AV女優在籍風俗店情報" },
+          { value: "avfuuzoku", label: "AV女優風俗在籍情報更新.com" },
           { value: "cityheaven", label: "シティヘブン（セクシー女優の本日出勤）" },
         ]}
       />
@@ -139,9 +143,17 @@ export function SourceFields({ source, shopOptions }: { source?: DataSource; sho
         defaultValue={source?.shopId ?? ""}
         options={[{ value: "", label: "選択しない（まとめサイト型）" }, ...shopOptions.map((s) => ({ value: s.id, label: s.name }))]}
       />
-      <Field label="巡回ページ数（まとめサイト型）" name="maxPages" type="number" min={1} max={14} defaultValue={source?.maxPages ?? 7} hint="1地域あたり何ページまで見るか（1ページ100人）" />
+      <Field label="巡回ページ数（まとめサイト型）" name="maxPages" type="number" min={1} max={60} defaultValue={source?.maxPages ?? 7} hint="1地域あたり何ページまで見るか（1ページ100人）。FuuAV は全記事が45ページあるため60を指定してください" />
       <div className="sm:col-span-2">
-        <Field label="取り込み元のURL" name="url" type="url" required maxLength={1000} defaultValue={source?.url} hint="avzoku の例：https://avzoku.com/schedule/tokyo-deliveryhealth/　avfuzoku の例：https://www.avfuzoku-soap-deli.com/sitemap.html　シティヘブンの例：https://www.cityheaven.net/tokyo/（地域を限定しない場合は https://www.cityheaven.net/ ）" />
+        <Field
+          label="取り込み元のURL"
+          name="url"
+          type="url"
+          required
+          maxLength={1000}
+          defaultValue={source?.url}
+          hint="avzoku：https://avzoku.com/schedule/tokyo-deliveryhealth/　avfuzoku：https://www.avfuzoku-soap-deli.com/sitemap.html　adultinfo：https://adultinfojpn.com/avfuzoku/　FuuAV：https://fuuav.com/allposts/　コウデリ：https://www.koukyuderi.jp/special/avjoyu.html　avfuuzoku：https://avfuuzoku.com/genre_search.php　シティヘブン：https://www.cityheaven.net/tokyo/（地域を限定しない場合は https://www.cityheaven.net/ ）"
+        />
       </div>
       <div className="space-y-3 sm:col-span-2">
         <CheckboxField

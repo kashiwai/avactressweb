@@ -13,7 +13,11 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 300;
 
 /** 1回の実行で使う時間（上限 300 秒に対して余裕を持たせる） */
-const BUDGET_MS = 240_000;
+const BUDGET_MS = 230_000;
+/** 待ち行列が長くても、写真（DMM・DUGA）の補完に使う時間を必ず残す */
+const PHOTO_RESERVE_MS = 75_000;
+const DMM_FILL_MS = 40_000;
+const DUGA_FILL_MS = 20_000;
 
 function authorized(req: Request): boolean {
   const secret = process.env.CRON_SECRET;
@@ -60,10 +64,13 @@ async function run() {
   }
 
   const enqueued = await enqueueDueSources(deadline);
-  const drained = await drainQueue(deadline);
+  const drainDeadline = deadline - PHOTO_RESERVE_MS;
+  const drained = await drainQueue(drainDeadline);
   // 取り込みで時間が余ったら、DMM の公式画像で女優の写真を補う（APIキーが未設定なら何もしない）
-  const photos = await fillDmmPhotos(deadline);
-  const duga = await fillDugaPhotos(deadline);
+  // 待ち行列が長い日でも写真の補完が止まらないよう、写真用の時間を先に確保しておく
+  const photoStart = Math.max(Date.now(), drainDeadline);
+  const photos = await fillDmmPhotos(photoStart + DMM_FILL_MS);
+  const duga = await fillDugaPhotos(photoStart + DMM_FILL_MS + DUGA_FILL_MS);
   const genres = await fillDugaGenres(deadline);
   return Response.json({ ok: true, abandoned, othersRun, enqueued, ...drained, photos, duga, genres });
 }

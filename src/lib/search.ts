@@ -29,7 +29,7 @@ export async function siteSearch(raw: string, limit = 6): Promise<SearchResult> 
 
   const [a, s] = await Promise.all([
     db
-      .selectDistinct({ id: actresses.id, name: actresses.name, kana: actresses.kana, imageUrl: actresses.imageUrl })
+      .selectDistinct({ id: actresses.id, name: actresses.name, kana: actresses.kana, imageUrl: sql<string>`coalesce(nullif(${actresses.imageUrl}, ''), ${actresses.sourceImageUrl})` })
       .from(actresses)
       .innerJoin(enrollments, and(eq(enrollments.actressId, actresses.id), eq(enrollments.status, "active")))
       .innerJoin(shops, and(eq(shops.id, enrollments.shopId), eq(shops.isPublished, true)))

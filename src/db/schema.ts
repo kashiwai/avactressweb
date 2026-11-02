@@ -18,7 +18,16 @@ export const roleEnum = pgEnum("role", ["admin", "shop"]);
 export const enrollmentStatusEnum = pgEnum("enrollment_status", ["active", "left"]);
 export const scheduleStatusEnum = pgEnum("schedule_status", ["working", "off"]);
 export const scheduleOriginEnum = pgEnum("schedule_origin", ["manual", "shop", "ingest"]);
-export const sourceKindEnum = pgEnum("source_kind", ["json_feed", "avzoku", "cityheaven", "avfuzoku"]);
+export const sourceKindEnum = pgEnum("source_kind", [
+  "json_feed",
+  "avzoku",
+  "cityheaven",
+  "avfuzoku",
+  "adultinfo",
+  "fuuav",
+  "koukyuderi",
+  "avfuuzoku",
+]);
 export const removalStatusEnum = pgEnum("removal_status", ["new", "in_progress", "done", "rejected"]);
 export const requesterEnum = pgEnum("requester_type", ["actress", "agency", "shop", "other"]);
 export const linkProviderEnum = pgEnum("link_provider", ["fanza", "myfans", "other"]);
@@ -72,6 +81,10 @@ export const actresses = pgTable(
     // 出演作品のジャンル（多い順）
     genres: jsonb("genres").$type<string[]>().notNull().default([]),
     imageUrl: text("image_url").notNull().default(""),
+    // DUGA/DMM に写真が無いときだけ使う、取り込み元ページの女優画像URL（表示用）
+    sourceImageUrl: text("source_image_url").notNull().default(""),
+    // 取り込み元に書かれた別名（「有村のぞみ(早川ひとみ・中井のぞみ)」の括弧内）。名寄せに使う
+    aliases: jsonb("aliases").$type<string[]>().notNull().default([]),
     profile: text("profile").notNull().default(""),
     isPublished: boolean("is_published").notNull().default(true),
     // 本人・事務所からの依頼による掲載停止

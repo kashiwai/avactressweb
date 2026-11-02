@@ -4,6 +4,8 @@
 import { PREFECTURES } from "../prefectures";
 import { normalizeGenre } from "./avzoku";
 import { prefCodeOfSlug } from "./cityheaven";
+import { GENRE_SUFFIX, splitPersonNames } from "./normalize";
+import { ogImage } from "./html";
 
 export const AVFUZOKU_ORIGIN = "https://www.avfuzoku-soap-deli.com";
 
@@ -59,8 +61,6 @@ function prefCodeOfShopUrl(url: string): number | null {
   return m ? prefCodeOfSlug(m[1]) : null;
 }
 
-const GENRE_SUFFIX = /(ニューハーフデリヘル|ニューハーフヘルス|メンエス|メンズエステ|ソープランド|ソープ|ホテヘル|ホテルヘルス|デリヘル|デリバリーヘルス|箱ヘル|店舗型ヘルス|ヘルス|M性感|性感エステ|回春エステ|エステ|ピンサロ|SMクラブ|SM|イメクラ|オナクラ|手コキ|待ち合わせ)$/;
-
 export type AvfuzokuEntry = {
   shopName: string;
   area: string;
@@ -74,6 +74,8 @@ export type AvfuzokuActress = {
   url: string;
   name: string;
   kana: string;
+  aliases: string[];
+  imageUrl: string;
   entries: AvfuzokuEntry[];
   leftShops: string[];
 };
@@ -107,14 +109,17 @@ export function parseAvfuzokuActress(html: string, url: string): AvfuzokuActress
   const fromH1 = (body.match(/<h1[^>]*>([^<]+)<\/h1>/)?.[1] ?? "").replace(/の風俗.*$/, "");
   const nameText = [fromLabel, fromH2, fromH1].map((x) => text(x)).find((x) => x.length > 0);
   if (!nameText) return null;
-  const nm = nameText.match(/^([^(（]+)(?:[(（]([^)）]+)[)）])?/);
-  if (!nm) return null;
-  const name = nm[1].trim();
-  const kana = (nm[2] ?? "").trim();
+  // 「千鶴えま(ちづるえま)、サンディー・雛・パークス」のような並記は、本人名と別名に分ける
+  const parsed = splitPersonNames(nameText);
+  const name = parsed.name;
+  if (!name) return null;
+  const kana = (nameText.match(/^[^(（]+[(（]([^)）]+)[)）]/)?.[1] ?? "").trim();
+  const aliases = [...new Set(parsed.aliases.filter((a) => a && a !== name))];
+  const imageUrl = ogImage(body, url);
 
   // 「在籍情報」の見出しから、作品紹介の枠（class="point"）までが在籍の欄
   const start = body.search(/<strong>\s*在籍情報\s*<\/strong>/);
-  if (start < 0) return { url, name, kana, entries: [], leftShops: [] };
+  if (start < 0) return { url, name, kana, aliases, imageUrl, entries: [], leftShops: [] };
   const rest = body.slice(start);
   const end = rest.search(/<div class="point"|<div class="linkcard"|<h2/);
   const section = end > 0 ? rest.slice(0, end) : rest.slice(0, 8000);
@@ -141,5 +146,5 @@ export function parseAvfuzokuActress(html: string, url: string): AvfuzokuActress
       if (p) leftShops.push(p.shopName);
     }
   }
-  return { url, name, kana, entries: [...entries.values()], leftShops };
+  return { url, name, kana, aliases, imageUrl, entries: [...entries.values()], leftShops };
 }

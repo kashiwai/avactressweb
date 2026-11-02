@@ -4,7 +4,67 @@ import { Clock, MapPin, Store } from "lucide-react";
 import { Avatar, Badge, cn } from "./ui";
 import { hm, isWithinShift, shortDate, weekdayIndex } from "@/lib/dates";
 import { prefName } from "@/lib/prefectures";
+import { GENRE_ACTIVE_CLASSES, GENRE_BADGE_CLASSES, GENRE_CHIP_CLASSES, GENRES, genreColor, genreLabel } from "@/lib/genres";
 import type { WorkingRow } from "@/lib/queries";
+
+/** 業種を色分けしたバッジ（ソープ＝赤、デリヘル＝青、チャイデリ＝橙、エステ＝緑…） */
+export function GenreBadge({ genre, className }: { genre?: string | null; className?: string }) {
+  const label = genreLabel(genre);
+  if (!label) return null;
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center whitespace-nowrap rounded-full border px-2 py-0.5 text-[11px] font-medium",
+        GENRE_BADGE_CLASSES[genreColor(genre)],
+        className,
+      )}
+    >
+      {label}
+    </span>
+  );
+}
+
+/** 業種で絞り込む色付きチップ。makeHref は現在の検索条件を保ったURLを作る */
+export function GenreFilter({
+  current,
+  makeHref,
+  className,
+}: {
+  current?: string;
+  makeHref: (genre?: string) => string;
+  className?: string;
+}) {
+  return (
+    <div className={cn("flex gap-1.5 overflow-x-auto pb-1", className)} role="group" aria-label="業種で絞り込む">
+      <Link
+        href={makeHref()}
+        aria-current={!current ? "true" : undefined}
+        className={cn(
+          "whitespace-nowrap rounded-full border px-3 py-1 text-xs font-medium transition-colors",
+          !current ? "border-accent bg-accent text-white" : "border-line bg-surface text-muted hover:border-rose-500/40 hover:text-foreground",
+        )}
+      >
+        すべて
+      </Link>
+      {GENRES.map((g) => {
+        const active = current === g.name;
+        return (
+          <Link
+            key={g.slug}
+            href={makeHref(g.name)}
+            aria-current={active ? "true" : undefined}
+            className={cn(
+              "whitespace-nowrap rounded-full border px-3 py-1 text-xs font-medium transition-colors",
+              active ? GENRE_ACTIVE_CLASSES[g.color] : GENRE_CHIP_CLASSES[g.color],
+            )}
+          >
+            {g.label}
+          </Link>
+        );
+      })}
+    </div>
+  );
+}
 
 export function WorkingCard({ row, nowHm, isToday }: { row: WorkingRow; nowHm: string; isToday: boolean }) {
   const live = isToday && isWithinShift(row.startTime, row.endTime, nowHm);
@@ -19,6 +79,7 @@ export function WorkingCard({ row, nowHm, isToday }: { row: WorkingRow; nowHm: s
             {row.actressName}
           </Link>
           {live ? <Badge tone="accent">● いま出勤中</Badge> : <Badge tone="ok">出勤</Badge>}
+          <GenreBadge genre={row.genre} />
         </div>
         <Link href={`/shops/${row.shopId}`} className="mt-1 flex items-center gap-1 truncate text-sm text-muted hover:text-foreground">
           <Store className="size-3.5 shrink-0" aria-hidden />

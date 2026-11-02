@@ -8,7 +8,7 @@ import { fetchActressItems } from "@/lib/dmm";
 import { fetchDugaWorks } from "@/lib/duga";
 import { WEEKDAY_LABELS, addDays, dateRange, hm, shortDate, todayJst } from "@/lib/dates";
 import { prefName } from "@/lib/prefectures";
-import { AttendanceGrid, Legend, PrBadge } from "@/components/public";
+import { AttendanceGrid, Legend, PrBadge, GenreBadge } from "@/components/public";
 import { Avatar, Badge, Card, cn } from "@/components/ui";
 
 export const dynamic = "force-dynamic";
@@ -64,7 +64,7 @@ export default async function ActressDetailPage({ params }: PageProps<"/actresse
       </nav>
 
       <Card className="flex flex-col gap-4 p-5 sm:flex-row">
-        <Avatar name={actress.name} src={actress.imageUrl} size={128} />
+        <Avatar name={actress.name} src={actress.imageUrl || actress.sourceImageUrl} size={128} />
         <div className="min-w-0 flex-1">
           <h1 className="text-2xl font-bold">{actress.name}</h1>
           {actress.kana && <p className="text-sm text-muted">{actress.kana}</p>}
@@ -127,8 +127,9 @@ export default async function ActressDetailPage({ params }: PageProps<"/actresse
                   <Store className="size-4" aria-hidden />
                   {e.shop.name}
                 </Link>
-                <div className="mt-1 text-sm text-muted">
-                  {prefName(e.shop.prefCode)} {e.shop.area}／{e.shop.genre}
+                <div className="mt-1 flex flex-wrap items-center gap-2 text-sm text-muted">
+                  <span>{prefName(e.shop.prefCode)} {e.shop.area}</span>
+                  <GenreBadge genre={e.shop.genre} />
                 </div>
                 <div className="mt-1 text-sm">店での名前：{e.shopDisplayName}</div>
                 <div className="mt-2 text-sm">{t ? <Badge tone="ok">本日 {t.startTime ? `${hm(t.startTime)}〜${hm(t.endTime)}` : "出勤"}</Badge> : <Badge>本日出勤なし</Badge>}</div>
@@ -216,18 +217,23 @@ export default async function ActressDetailPage({ params }: PageProps<"/actresse
             {actress.name}の出演作品（DUGA） <PrBadge />
           </h2>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-            {dugaItems.map((it) => (
-              <a key={it.productId} href={it.affiliateUrl} target="_blank" rel="sponsored nofollow noopener" className="group overflow-hidden rounded-xl border border-line bg-surface hover:border-rose-500/40">
-                {(it.jacketUrl || it.posterUrl) && (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={it.jacketUrl || it.posterUrl} alt={it.title} className="aspect-[3/4] w-full object-cover" loading="lazy" />
-                )}
-                <div className="p-2">
-                  <div className="line-clamp-2 text-xs group-hover:text-accent">{it.title}</div>
-                  <div className="mt-1 text-[11px] text-muted">{it.releaseDate}</div>
-                </div>
-              </a>
-            ))}
+            {dugaItems.map((it) => {
+              // DUGAの表紙は 1000x672（3:2）、ポスターは 240x180（4:3）。枠の比率を画像に合わせる
+              const image = it.jacketUrl || it.posterUrl;
+              const aspect = it.jacketUrl ? "aspect-[3/2]" : "aspect-[4/3]";
+              return (
+                <a key={it.productId} href={it.affiliateUrl} target="_blank" rel="sponsored nofollow noopener" className="group overflow-hidden rounded-xl border border-line bg-surface hover:border-rose-500/40">
+                  {image && (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={image} alt={it.title} className={`${aspect} w-full object-cover`} loading="lazy" />
+                  )}
+                  <div className="p-2">
+                    <div className="line-clamp-2 text-xs group-hover:text-accent">{it.title}</div>
+                    <div className="mt-1 text-[11px] text-muted">{it.releaseDate}</div>
+                  </div>
+                </a>
+              );
+            })}
           </div>
           <p className="mt-2 text-xs text-muted">作品情報は DUGA ウェブサービスの提供です（Powered by DUGA）。</p>
         </section>

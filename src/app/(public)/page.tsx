@@ -3,8 +3,9 @@ import { CalendarHeart, RefreshCw, Search, Store, Users } from "lucide-react";
 import { getRecentEnrollments, getSiteStats, getWorkingCountByPref, getWorkingOn } from "@/lib/queries";
 import { addDays, dateRange, formatDateTimeJst, isYmd, nowTimeJst, shortDate, todayJst } from "@/lib/dates";
 import { PREFECTURES, REGIONS, prefName } from "@/lib/prefectures";
-import { WorkingCard } from "@/components/public";
+import { WorkingCard, GenreFilter } from "@/components/public";
 import { Avatar, Button, Card, EmptyState, StatCard, cn } from "@/components/ui";
+import { genreByName, genreLabel } from "@/lib/genres";
 
 export const dynamic = "force-dynamic";
 
@@ -16,9 +17,11 @@ export default async function HomePage({ searchParams }: PageProps<"/">) {
   const date = isYmd(rawDate) && days.includes(rawDate) ? rawDate : today;
   const pref = Number(typeof sp.pref === "string" ? sp.pref : 0) || undefined;
   const q = typeof sp.q === "string" ? sp.q.trim().slice(0, 50) : "";
+  const rawGenre = typeof sp.genre === "string" ? sp.genre : "";
+  const genre = genreByName(rawGenre)?.name;
 
   const [rows, stats, prefCounts, recent] = await Promise.all([
-    getWorkingOn(date, { prefCode: pref, q: q || undefined }),
+    getWorkingOn(date, { prefCode: pref, q: q || undefined, genre }),
     getSiteStats(),
     getWorkingCountByPref(date),
     getRecentEnrollments(6),
@@ -32,6 +35,7 @@ export default async function HomePage({ searchParams }: PageProps<"/">) {
     if (d !== today) p.set("date", d);
     if (pref) p.set("pref", String(pref));
     if (q) p.set("q", q);
+    if (genre) p.set("genre", genre);
     const s = p.toString();
     return s ? `/?${s}` : "/";
   };
@@ -45,6 +49,7 @@ export default async function HomePage({ searchParams }: PageProps<"/">) {
         <p className="mt-2 text-sm text-muted">お店が公表している在籍・出勤予定を毎日集計。女優・店舗・地域から今日の出勤がすぐに分かります。</p>
         <form className="mt-5 flex flex-col gap-2 sm:flex-row" action="/" method="get">
           {date !== today && <input type="hidden" name="date" value={date} />}
+          {genre && <input type="hidden" name="genre" value={genre} />}
           <label className="sr-only" htmlFor="q">キーワード</label>
           <input
             id="q"
@@ -67,6 +72,18 @@ export default async function HomePage({ searchParams }: PageProps<"/">) {
             検索
           </Button>
         </form>
+        <GenreFilter
+          current={genre}
+          className="mt-4"
+          makeHref={(g) =>
+            `/?${new URLSearchParams({
+              ...(date !== today ? { date } : {}),
+              ...(pref ? { pref: String(pref) } : {}),
+              ...(q ? { q } : {}),
+              ...(g ? { genre: g } : {}),
+            })}`
+          }
+        />
       </section>
 
       <section className="grid grid-cols-2 gap-3 lg:grid-cols-4">
@@ -97,9 +114,10 @@ export default async function HomePage({ searchParams }: PageProps<"/">) {
           <h2 className="text-lg font-bold">
             {isToday ? "本日" : shortDate(date)}出勤のAV女優
             {pref && <span className="ml-2 text-base text-muted">／{prefName(pref)}</span>}
+            {genre && <span className="ml-2 text-base text-muted">／{genreLabel(genre)}</span>}
             <span className="ml-2 text-base font-normal text-muted">{liveCount}人</span>
           </h2>
-          {(pref || q) && (
+          {(pref || q || genre) && (
             <Link href={date === today ? "/" : `/?date=${date}`} className="text-sm text-muted underline hover:text-foreground">
               絞り込みを解除
             </Link>

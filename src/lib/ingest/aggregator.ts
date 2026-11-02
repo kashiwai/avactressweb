@@ -29,10 +29,15 @@ export async function applyAggregatedActress(a: AvzokuActress, today: string): P
 
     let [act] = await tx.select().from(actresses).where(eq(actresses.name, a.name)).limit(1);
     if (!act) {
-      [act] = await tx.insert(actresses).values({ name: a.name, kana: a.kana }).returning();
+      [act] = await tx.insert(actresses).values({ name: a.name, kana: a.kana, sourceImageUrl: a.imageUrl || "" }).returning();
       createdActress = true;
-    } else if (!act.kana && a.kana) {
-      await tx.update(actresses).set({ kana: a.kana, updatedAt: new Date() }).where(eq(actresses.id, act.id));
+    } else {
+      const patch: { kana?: string; sourceImageUrl?: string; updatedAt?: Date } = {};
+      if (!act.kana && a.kana) patch.kana = a.kana;
+      if (!act.sourceImageUrl && a.imageUrl) patch.sourceImageUrl = a.imageUrl;
+      if (Object.keys(patch).length) {
+        await tx.update(actresses).set({ ...patch, updatedAt: new Date() }).where(eq(actresses.id, act.id));
+      }
     }
 
     let [shop] = await tx.select().from(shops).where(and(eq(shops.name, a.shopName), eq(shops.prefCode, prefCode))).limit(1);

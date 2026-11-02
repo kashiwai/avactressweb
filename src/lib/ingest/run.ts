@@ -111,9 +111,11 @@ export async function runSource(source: DataSource): Promise<RunResult> {
   }
 }
 
-/** 有効かつ規約確認済みの取り込み元をすべて実行する（1件ずつ順番に・間隔を空ける） */
+/** 有効かつ規約確認済みの取り込み元のうち、待ち行列を使わないものをすべて実行する（1件ずつ順番に・間隔を空ける） */
 export async function runAllSources(): Promise<RunResult[]> {
-  const list = await db.select().from(dataSources).where(and(eq(dataSources.enabled, true), eq(dataSources.termsConfirmed, true)));
+  const list = (await db.select().from(dataSources).where(and(eq(dataSources.enabled, true), eq(dataSources.termsConfirmed, true)))).filter(
+    (s) => s.kind !== "avzoku" && s.kind !== "avfuzoku" && s.kind !== "adultinfo" && s.kind !== "fuuav" && s.kind !== "koukyuderi" && s.kind !== "avfuuzoku",
+  );
   const results: RunResult[] = [];
   for (const s of list) {
     results.push(await runSource(s));

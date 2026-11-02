@@ -4,7 +4,8 @@ import { Search, Store } from "lucide-react";
 import { listPublicShops } from "@/lib/queries";
 import { PREFECTURES, prefName } from "@/lib/prefectures";
 import { PAGE_SIZE } from "@/lib/queries";
-import { Pager } from "@/components/public";
+import { genreByName, genreLabel } from "@/lib/genres";
+import { GenreBadge, GenreFilter, Pager } from "@/components/public";
 import { Badge, Button, EmptyState, PageHeader } from "@/components/ui";
 
 export const dynamic = "force-dynamic";
@@ -14,17 +15,23 @@ export default async function ShopsPage({ searchParams }: PageProps<"/shops">) {
   const sp = await searchParams;
   const q = typeof sp.q === "string" ? sp.q.trim().slice(0, 50) : "";
   const pref = Number(typeof sp.pref === "string" ? sp.pref : 0) || undefined;
+  const rawGenre = typeof sp.genre === "string" ? sp.genre : "";
+  const genre = genreByName(rawGenre)?.name;
   const page = Math.max(1, Math.min(1000, Number(sp.page) || 1));
-  const rows = await listPublicShops({ prefCode: pref, q: q || undefined, page });
+  const rows = await listPublicShops({ prefCode: pref, q: q || undefined, genre, page });
   const hasNext = rows.length > PAGE_SIZE;
   const list = rows.slice(0, PAGE_SIZE);
 
   return (
     <div>
-      <PageHeader title="店舗から探す" description={`AV女優の在籍を公表している店舗（${(page - 1) * PAGE_SIZE + 1}〜${(page - 1) * PAGE_SIZE + list.length}店目）`} />
-      <form className="mb-5 flex flex-col gap-2 sm:flex-row" method="get">
+      <PageHeader
+        title="店舗から探す"
+        description={`AV女優の在籍を公表している店舗${genre ? `（${genreLabel(genre)}）` : ""}（${(page - 1) * PAGE_SIZE + 1}〜${(page - 1) * PAGE_SIZE + list.length}店目）`}
+      />
+      <form className="mb-4 flex flex-col gap-2 sm:flex-row" method="get">
+        {genre && <input type="hidden" name="genre" value={genre} />}
         <label className="sr-only" htmlFor="q">店舗名</label>
-        <input id="q" name="q" defaultValue={q} placeholder="店舗名・エリア・業種で検索" className="flex-1 rounded-lg border border-line bg-surface-2 px-3 py-2 text-sm focus:border-accent focus:outline-none" />
+        <input id="q" name="q" defaultValue={q} placeholder="店舗名・エリアで検索" className="flex-1 rounded-lg border border-line bg-surface-2 px-3 py-2 text-sm focus:border-accent focus:outline-none" />
         <label className="sr-only" htmlFor="pref">都道府県</label>
         <select id="pref" name="pref" defaultValue={pref ?? ""} className="rounded-lg border border-line bg-surface-2 px-3 py-2 text-sm">
           <option value="">全国</option>
@@ -37,8 +44,13 @@ export default async function ShopsPage({ searchParams }: PageProps<"/shops">) {
           検索
         </Button>
       </form>
+      <GenreFilter
+        current={genre}
+        className="mb-5"
+        makeHref={(g) => `/shops?${new URLSearchParams({ ...(q ? { q } : {}), ...(pref ? { pref: String(pref) } : {}), ...(g ? { genre: g } : {}) })}`}
+      />
       {list.length === 0 ? (
-        <EmptyState title="該当する店舗が見つかりません" description="都道府県やキーワードを変えてお試しください。" />
+        <EmptyState title="該当する店舗が見つかりません" description="都道府県・業種やキーワードを変えてお試しください。" />
       ) : (
         <div className="grid gap-3 sm:grid-cols-2">
           {list.map(({ shop, avCount, workingToday }) => (
@@ -47,9 +59,9 @@ export default async function ShopsPage({ searchParams }: PageProps<"/shops">) {
                 <Store className="size-4 text-accent" aria-hidden />
                 {shop.name}
               </div>
-              <div className="mt-1 text-sm text-muted">
-                {prefName(shop.prefCode)} {shop.area}
-                {shop.genre && `／${shop.genre}`}
+              <div className="mt-1 flex flex-wrap items-center gap-2 text-sm text-muted">
+                <span>{prefName(shop.prefCode)} {shop.area}</span>
+                <GenreBadge genre={shop.genre} />
               </div>
               <div className="mt-2 flex flex-wrap gap-2">
                 <Badge tone="info">AV女優在籍 {avCount + shop.anonymousAvCount}人</Badge>
@@ -62,7 +74,7 @@ export default async function ShopsPage({ searchParams }: PageProps<"/shops">) {
       <Pager
         page={page}
         hasNext={hasNext}
-        makeHref={(p) => `/shops?${new URLSearchParams({ ...(q ? { q } : {}), ...(pref ? { pref: String(pref) } : {}), page: String(p) })}`}
+        makeHref={(p) => `/shops?${new URLSearchParams({ ...(q ? { q } : {}), ...(pref ? { pref: String(pref) } : {}), ...(genre ? { genre } : {}), page: String(p) })}`}
       />
     </div>
   );

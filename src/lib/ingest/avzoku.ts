@@ -1,6 +1,7 @@
 // avzoku.com（運営者の許可を得た取り込み元）のページ読み取り。通信は行わない純粋関数のみ
 import { PREFECTURES } from "../prefectures";
 import { GENRES } from "../genres";
+import { imageByAlt, ogImage } from "./html";
 
 const decode = (s: string) =>
   s
@@ -28,6 +29,7 @@ export type AvzokuActress = {
   url: string;
   name: string;
   kana: string;
+  imageUrl: string;
   prefCode: number | null;
   area: string;
   genre: string; // GENRES の名前に正規化済み
@@ -45,6 +47,7 @@ function tableValue(html: string, label: string): string {
 
 export function normalizeGenre(raw: string): string {
   const r = raw.replace(/\s/g, "");
+  if (/チャイデリ|チャイナデリ|チャイニーズデリ|中国デリ/.test(r)) return "チャイデリ";
   if (/ホテヘル|ホテルヘルス/.test(r)) return "ホテヘル";
   if (/デリヘル|デリバリー/.test(r)) return "デリヘル";
   if (/ソープ/.test(r)) return "ソープ";
@@ -97,6 +100,7 @@ export function parseAvzokuActress(html: string, url: string, today: string): Av
     url,
     name,
     kana: text(tableValue(body, "よみ")),
+    imageUrl: imageByAlt(body, url, name) || ogImage(body, url),
     prefCode: PREFECTURES.find((p) => p.name === prefName)?.code ?? null,
     area: text(tableValue(body, "エリア")),
     genre: normalizeGenre(text(tableValue(body, "ジャンル"))),

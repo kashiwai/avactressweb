@@ -81,6 +81,14 @@ async function applyGirl(g: CityheavenGirl, actressId: number, today: string): P
     .returning({ id: enrollments.id, status: enrollments.status });
   if (enr.status !== "active") return false;
 
+  // DUGA/DMMに写真が無い女優のために、シティヘブンの女の子写真を表示用に残す
+  if (g.imageUrl) {
+    const [act] = await db.select({ sourceImageUrl: actresses.sourceImageUrl }).from(actresses).where(eq(actresses.id, actressId)).limit(1);
+    if (act && !act.sourceImageUrl) {
+      await db.update(actresses).set({ sourceImageUrl: g.imageUrl, updatedAt: new Date() }).where(eq(actresses.id, actressId));
+    }
+  }
+
   await db
     .insert(schedules)
     .values({ enrollmentId: enr.id, workDate: today, status: "working", origin: "ingest" })
@@ -203,6 +211,7 @@ export async function linkCandidate(candidateId: number, actressId: number, user
     girlId: c.externalId,
     displayName: c.displayName,
     girlUrl: c.girlUrl,
+    imageUrl: "",
     shopName: c.shopName,
     shopUrl: c.shopUrl,
     genre: c.genre,

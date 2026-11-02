@@ -71,6 +71,20 @@
       "when": 1792207071394,
       "tag": "0009_actress_profile",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1793158828457,
+      "tag": "0010_silent_slyde",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1793172061049,
+      "tag": "0011_white_gamma_corps",
+      "breakpoints": true
     }
   ]
 }
