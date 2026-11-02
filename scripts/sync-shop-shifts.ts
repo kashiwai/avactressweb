@@ -25,14 +25,14 @@ const deadline = maxMinutes > 0 ? Date.now() + maxMinutes * 60_000 : Number.POSI
 const today = todayJst();
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-type DisplayIndex = { byShop: Map<string, number[]>; global: Map<string, number[]> };
+type DisplayIndex = { byShop: Map<string, number[]>; alias: Map<string, number[]> };
 async function loadDisplayIndex(): Promise<DisplayIndex> {
   const rows = await db
     .select({ shopId: enrollments.shopId, actressId: enrollments.actressId, name: enrollments.shopDisplayName })
     .from(enrollments)
     .where(eq(enrollments.status, "active"));
   const byShop = new Map<string, number[]>();
-  const global = new Map<string, number[]>();
+  const alias = new Map<string, number[]>();
   const add = (m: Map<string, number[]>, key: string, id: number) => {
     const list = m.get(key);
     if (list) {
@@ -43,9 +43,17 @@ async function loadDisplayIndex(): Promise<DisplayIndex> {
     const key = normalizePersonName(r.name);
     if (key.length < 2) continue;
     add(byShop, `${r.shopId}|${key}`, r.actressId);
-    add(global, key, r.actressId);
   }
-  return { byShop, global };
+  // 源氏名がAV女優名・よみがな・別名と一致する場合だけ全国照合に使う
+  // （「いるか」「のん」のような短い源氏名を全国で1人に決めると誤マッチだらけになるため）
+  const names = await db
+    .select({ id: actresses.id, name: actresses.name, kana: actresses.kana, aliases: actresses.aliases })
+    .from(actresses);
+  for (const a of names) {
+    const keys = [a.name, a.kana ?? "", ...(a.aliases ?? [])].map(normalizePersonName).filter((k) => k.length >= 3);
+    for (const k of new Set(keys)) add(alias, k, a.id);
+  }
+  return { byShop, alias };
 }
 const displayIndex = await loadDisplayIndex();
 
@@ -106,7 +114,7 @@ for (const shop of shopsToSync) {
       if (!enrollmentId && existing.length === 0) {
         // 他の取り込み元の「源氏名 → AV女優」対応から逆引きする
         const byShop = displayIndex.byShop.get(`${shop.id}|${key}`) ?? [];
-        const ids = byShop.length ? byShop : displayIndex.global.get(key) ?? [];
+        const ids = byShop.length ? byShop : key.length >= 3 ? displayIndex.alias.get(key) ?? [] : [];
         if (ids.length === 1) {
           const actressId = ids[0];
           const [row] = await db
