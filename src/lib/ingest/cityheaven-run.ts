@@ -8,6 +8,7 @@ import { actresses, candidateGirls, enrollments, schedules, shops, type DataSour
 import { todayJst } from "../dates";
 import { ALL_PREF_CODES, listUrl, parseCityheavenList, prefSlugOf, type CityheavenGirl } from "./cityheaven";
 import { matchActressName, type MatchCandidate } from "./name-match";
+import { normalizePersonName } from "./normalize";
 import { USER_AGENT, checkRobots } from "./robots";
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -43,11 +44,45 @@ export function targetPrefCodes(source: Pick<DataSource, "url">): number[] {
 /** 掲載中の女優を照合の候補として読み出す（掲載停止の方は候補に入れない） */
 async function loadCandidates(): Promise<MatchCandidate[]> {
   const rows = await db
-    .select({ actressId: actresses.id, name: actresses.name, kana: actresses.kana })
+    .select({ actressId: actresses.id, name: actresses.name, kana: actresses.kana, aliases: actresses.aliases })
     .from(actresses)
     .where(and(eq(actresses.isPublished, true), eq(actresses.optedOut, false)));
   return rows;
 }
+
+type DisplayNameIndex = {
+  /** 店舗ID + 源氏名 → 女優ID（同じ店で同じ源氏名なら同一人物とみなす） */
+  byShop: Map<string, number[]>;
+  /** 源氏名 → 女優ID（全国で1人に定まる場合だけ使う） */
+  global: Map<string, number[]>;
+};
+
+/**
+ * 他の取り込み元（avfuzoku・FuuAV・コウデリ等）が持つ「店での源氏名 → AV女優」の対応を索引にする。
+ * シティヘブンの源氏名はAV女優名と違うことが多いため、この逆引きを先に試す。
+ */
+async function loadDisplayNameIndex(): Promise<DisplayNameIndex> {
+  const rows = await db
+    .select({ shopId: enrollments.shopId, actressId: enrollments.actressId, name: enrollments.shopDisplayName })
+    .from(enrollments)
+    .where(eq(enrollments.status, "active"));
+  const byShop = new Map<string, number[]>();
+  const global = new Map<string, number[]>();
+  const add = (m: Map<string, number[]>, key: string, id: number) => {
+    const list = m.get(key);
+    if (list) {
+      if (!list.includes(id)) list.push(id);
+    } else m.set(key, [id]);
+  };
+  for (const r of rows) {
+    const key = normalizePersonName(r.name);
+    if (key.length < 2) continue;
+    add(byShop, `${r.shopId}|${key}`, r.actressId);
+    add(global, key, r.actressId);
+  }
+  return { byShop, global };
+}
+
 
 /** 店舗を用意する（同じ名前・同じ都道府県があれば使い回す） */
 async function ensureShop(g: CityheavenGirl): Promise<{ id: number; created: boolean }> {
@@ -137,6 +172,8 @@ export async function runCityheaven(source: DataSource): Promise<CityheavenResul
     errors: [],
   };
   const candidates = await loadCandidates();
+  // 他の取り込み元の「源氏名 → AV女優」対応（逆引き）
+  const displayNames = await loadDisplayNameIndex();
   // すでに運営者が「対象外」と判断した女の子は、毎回並べ直さない
   const ignored = new Set(
     (await db.select({ id: candidateGirls.externalId }).from(candidateGirls).where(eq(candidateGirls.status, "ignored"))).map((r) => r.id),
@@ -172,18 +209,24 @@ export async function runCityheaven(source: DataSource): Promise<CityheavenResul
         result.workingGirls++;
         if (ignored.has(g.girlId)) continue;
         try {
-          const actressId = linked.get(g.girlId);
-          if (actressId) {
-            const shopBefore = await ensureShop(g);
-            if (shopBefore.created) result.createdShops++;
-            if (await applyGirl(g, actressId, today)) result.applied++;
-            continue;
+          const shopBefore = await ensureShop(g);
+          if (shopBefore.created) result.createdShops++;
+
+          // 1) 運営者が結び付けた女の子 → 2) AV女優名・別名 → 3) 他の店データの源氏名から逆引き
+          let actressId = linked.get(g.girlId) ?? null;
+          if (!actressId) {
+            const m = matchActressName(g.displayName, candidates);
+            if (m.kind === "matched") actressId = m.actressId;
           }
-          const m = matchActressName(g.displayName, candidates);
-          if (m.kind === "matched") {
-            const shopBefore = await ensureShop(g);
-            if (shopBefore.created) result.createdShops++;
-            if (await applyGirl(g, m.actressId, today)) result.applied++;
+          if (!actressId) {
+            const key = normalizePersonName(g.displayName);
+            const byShop = displayNames.byShop.get(`${shopBefore.id}|${key}`) ?? [];
+            const ids = byShop.length ? byShop : displayNames.global.get(key) ?? [];
+            if (ids.length === 1) actressId = ids[0];
+          }
+
+          if (actressId) {
+            if (await applyGirl(g, actressId, today)) result.applied++;
           } else if (await upsertCandidate(g)) {
             result.newCandidates++;
           }
